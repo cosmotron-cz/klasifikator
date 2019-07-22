@@ -41,19 +41,21 @@ class Tester:
                 try:
                     if real['2'] != "Konspekt":
                         continue
+                    if real['9'] == "" or real['a'] == "":
+                        continue
                 except KeyError as ke:
-                    print("dict doesnt contain: " + str(ke))
+                    print("didnt pass control, missing field: " + str(ke))
                     continue
                 all_category += 1
                 all_subcategory += 1
                 for konspect in found_konspects:
                     try:
                         if konspect['category'] not in already_tested:
-                            if konspect['category'] == real['9']:
+                            if str(konspect['category']) == real['9']:
                                 correct_category += 1
                                 already_tested.append(konspect['category'])
-                        if konspect['subcategory'] == real['a']:
-                            correct_subcategory += 1
+                                if konspect['subcategory'] == real['a']:
+                                    correct_subcategory += 1
                     except KeyError as ke:
                         print("dict doesnt contain: " + str(ke))
                         break
@@ -62,6 +64,8 @@ class Tester:
         print(correct_category/all_category)
         print(correct_subcategory/all_subcategory)
         print(correct_konspect/all_konspect)
+        print(all_konspect)
+        print(all_category)
 
 
 
