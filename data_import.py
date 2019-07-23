@@ -4,8 +4,7 @@ from elasticsearch import Elasticsearch
 from elasticsearch import exceptions
 
 
-
-class Data_importer:
+class DataImporter:
 
     # premiestni nazvy poli marc zaznamov z value do key casti dictionary
     # zmeni "datafield": {"@tag": "072", "subfields": {"@code":"aaa", "#text":"text"}} -> "072": {"aaa":"text"}
@@ -75,14 +74,14 @@ class Data_importer:
                         elem.clear()
                         result = xmltodict.parse(xmlstr)
                         result = result['record']  # odstranenie record tagu
-                        Data_importer.move_tag_names(result)
+                        DataImporter.move_tag_names(result)
                         if result.get('072', None) is None:
                             continue
                         if result.get('080', None) is None:
                             continue
                         if result.get('OAI', None) is None:
                             continue
-                        if not Data_importer.is_in_language_dict(result, 'cze'):
+                        if not DataImporter.is_in_language_dict(result, 'cze'):
                             continue
                     except Exception as error:
                         print("exception during proccesing record number: " + str(number))
@@ -130,7 +129,7 @@ class Data_importer:
                         elem.clear()
                         result = xmltodict.parse(xmlstr)
                         result = result['record']  # odstranenie record tagu
-                        Data_importer.move_tag_names(result)
+                        DataImporter.move_tag_names(result)
                         if result.get('072', None) is None:
                             continue
                         if result.get('080', None) is None:
@@ -192,13 +191,13 @@ class Data_importer:
                         elem.clear()
                         result = xmltodict.parse(xmlstr)
                         result = result['record']  # odstranenie record tagu
-                        Data_importer.move_tag_names(result)
+                        DataImporter.move_tag_names(result)
                         if result.get('072', None) is not None:
                             continue
                         if result.get('OAI', None) is None:
                             continue
                         field_080 = result.get('080', None)
-                        if Data_importer.is_in_language_dict(result, "cze"):
+                        if DataImporter.is_in_language_dict(result, "cze"):
                             number_of_czech_not_taged += 1
                         else:
                             continue
@@ -230,7 +229,7 @@ request_body = {
 es.indices.create(index=index, body=request_body)
 
 path = 'C:\\Users\\jakub\\Documents\\metadata_nkp.xml'
-di = Data_importer()
+di = DataImporter()
 di.import_metadata(path, index)
 # di.import_part_of_data(path, index, 1088969)
 # di.count_czech_not_tagged(path)
