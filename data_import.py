@@ -2,6 +2,8 @@ import xmltodict
 import xml.etree.ElementTree as etree
 from elasticsearch import Elasticsearch
 from elasticsearch import exceptions
+import os
+import tarfile
 
 
 class DataImporter:
@@ -216,21 +218,32 @@ class DataImporter:
         print("number of not tagged in czech with multiple 080: " + str(number_with_multiple_080))
         print(error_log)
 
-index = 'records_nkp_filtered'
-es = Elasticsearch()
-# es.indices.delete(index=index)
-request_body = {
-    "settings" : {
-        "number_of_shards": 5,
-        "number_of_replicas": 1,
-        "index.mapping.total_fields.limit": 3000
-    }
-}
-es.indices.create(index=index, body=request_body)
+    @staticmethod
+    def import_texts(texts_path, sorted_pages, index):
+        for file in os.listdir(texts_path):
+            if not file.endswith("tar.gz"):
+                continue
+            tar = tarfile.open(os.path.join(texts_path, file), "r:gz")
+            tar.extractall(path=texts_path + "\\temp")
+            tar.close()
 
-path = 'C:\\Users\\jakub\\Documents\\metadata_nkp.xml'
-di = DataImporter()
-di.import_metadata(path, index)
+
+# index = 'records_nkp_filtered'
+# es = Elasticsearch()
+# # es.indices.delete(index=index)
+# request_body = {
+#     "settings" : {
+#         "number_of_shards": 5,
+#         "number_of_replicas": 1,
+#         "index.mapping.total_fields.limit": 3000
+#     }
+# }
+# es.indices.create(index=index, body=request_body)
+#
+# path = 'C:\\Users\\jakub\\Documents\\metadata_nkp.xml'
+# di = DataImporter()
+# di.import_metadata(path, index)
 # di.import_part_of_data(path, index, 1088969)
 # di.count_czech_not_tagged(path)
 
+DataImporter.import_texts('C:\\Users\\jakub\\Documents\\ziped1', 'C:\\Users\\jakub\\Documents\\sorted_pages_zip\\sorted_pages', "")
