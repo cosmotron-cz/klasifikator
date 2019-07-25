@@ -60,7 +60,8 @@ class DataExporter:
                         for key, val in konspecs.items():
                             new_072 = DataExporter.create_072(key, val['subcategory'], val['description'])
                             elem.append(new_072)
-                        new_file.write(etree.tostring(elem, encoding="utf8", xml_declaration=False, method="xml", pretty_print=True))
+                        if len(konspecs) > 0:
+                            new_file.write(etree.tostring(elem, encoding="utf8", xml_declaration=False, method="xml", pretty_print=True))
                         #new_tree = etree.ElementTree(elem)
                         #new_tree.write(new_file, encoding="utf8", xml_declaration=False, method="xml", pretty_print=True)
                         elem.clear()
@@ -97,6 +98,6 @@ class DataExporter:
         return field_072
 
 path = 'C:\\Users\\jakub\\Documents\\metadata_mzk.xml'
-path_to = 'C:\\Users\\jakub\\Documents\\export_mzk.xml'
+path_to = 'C:\\Users\\jakub\\Documents\\export2_mzk.xml'
 DataExporter.add_konspect_xml(path, path_to)
 #DataExporter.change_order_attr(path)
