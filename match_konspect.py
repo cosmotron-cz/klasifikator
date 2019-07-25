@@ -169,6 +169,8 @@ class MatchKonspekt():
             return mdt[:length-1]
         elif mdt[length - 1] == '-':
             return mdt[:length-1]
+        elif mdt[length - 1] == '=':
+            return mdt[:length - 1]
         elif mdt[length-1].isdigit():
             if mdt[length-2].isdigit():
                 return mdt[:length-1]
