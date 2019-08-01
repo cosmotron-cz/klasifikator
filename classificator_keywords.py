@@ -177,5 +177,7 @@ https://www.zive.cz/clanky/blizi-se-dalsi-revoluce-umela-inteligence-nam-v-roce-
 # print(word_tokenize(text))
 
 pre = Preprocessor()
+
 tokens = pre.remove_stop_words(text)
+tokens = pre.lemmatize(tokens)
 print(tokens)

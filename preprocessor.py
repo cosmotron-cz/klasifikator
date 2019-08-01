@@ -1,5 +1,5 @@
-from ufal.morphodita import Morpho, Forms, TokenRanges, Tokenizer
-
+from ufal.morphodita import *
+import sys
 
 class Preprocessor(object):
     def __init__(self, dictionary=None, stop_words=None):
@@ -42,6 +42,19 @@ class Preprocessor(object):
             raise Exception("Cannot load dictionary " + self.dictionary)
         self.tokenizer = self.morpho.newTokenizer()
 
+    def lemmatize(self, text):
+        if isinstance(text, str):
+            text = self.tokenize(text)
+
+        result = []
+        lemmas = TaggedLemmas()
+        converter = TagsetConverter.newPdtToConll2009Converter()
+        for word in text:
+            self.morpho.analyze(word, self.morpho.GUESSER, lemmas)
+            converter.convert(lemmas[0])
+            result.append(lemmas[0].lemma)
+        return result
+
     def remove_stop_words(self, text):
         if isinstance(text, str):
             text = self.tokenize(text)
@@ -64,4 +77,6 @@ class Preprocessor(object):
                 tokens.append(word)
 
         return tokens
+
+
 
