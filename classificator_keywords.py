@@ -2,6 +2,11 @@ from elasticsearch_dsl import Search
 from elasticsearch import Elasticsearch
 import pandas as pd
 from pandas import DataFrame
+from datetime import datetime
+import os, errno
+from nltk.tokenize import word_tokenize, wordpunct_tokenize
+from ufal.morphodita import *
+from preprocessor import Preprocessor
 
 
 def exists_at_least_one(hit_dict):
@@ -141,15 +146,36 @@ s = Search(using=es, index=index)
 #         "must_not": []
 #     }
 # }})
-s = s.source(["001", "OAI", "072"] + at_least_one)
+# s = s.source(["001", "OAI", "072"] + at_least_one)
+#
+# s.execute()
+# dataframes = []
+# for hit in s:
+#     hit_dict = hit.to_dict()
+#     if exists_at_least_one(hit_dict):
+#         df = transform_dict(hit_dict)
+#         dataframes.append(df)
+# data = pd.concat(dataframes)
+# print(data)
+# date_now = datetime.now()
+# results_dir = date_now.strftime('%Y_%m_%d_%H_%M')
+# try:
+#     os.makedirs(results_dir)
+# except OSError as e:
+#     if e.errno != errno.EEXIST:
+#         raise
+#
+# data.to_csv(results_dir + '/medzivysledok.csv')
+text = """Z A.I. jakožto příslibu, který s trochou nadsázky vyřeší všechny neduhy světa, se tak stal plytký buzzword, 
+pod kterým si každý představuje něco jiného. Jedni za těmi dvěma písmenky vidí potenciálního strašáka a bytost, která 
+nás všechny ovládne, ti střízlivější především asistovanou a rozšířenou inteligenci, která zvýší naši produktivitu, no 
+a ten zbytek hromadu exotických studií a experimentů, které jsou sice efektní, ale samy o sobě v praxi naprosto k 
+ničemu. Do tohoto ranku patří třeba počítač, který porazil člověka ve hře go, nebo třeba algoritmus, který si 
+představuje věci a kreslí obrázky jako po hodně silné dávce LSD. Více na: 
+https://www.zive.cz/clanky/blizi-se-dalsi-revoluce-umela-inteligence-nam-v-roce-2030-prinese-349-bilionu-korun-a-leckomu-sebere-praci/sc-3-a-188951/default.aspx"""
 
-s.execute()
-dataframes = []
-for hit in s:
-    hit_dict = hit.to_dict()
-    if exists_at_least_one(hit_dict):
-        df = transform_dict(hit_dict)
-        dataframes.append(df)
-data = pd.concat(dataframes)
-print(data)
-data.to_csv(r'C:\Users\jakub\Documents\medzivysledok.csv')
+# print(word_tokenize(text))
+
+pre = Preprocessor()
+tokens = pre.remove_stop_words(text)
+print(tokens)
