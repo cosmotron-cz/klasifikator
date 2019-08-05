@@ -62,7 +62,7 @@ class Preprocessor(object):
         result = []
 
         for word in text:
-            if word not in self.stop_words:
+            if word not in self.stop_words and 1 < len(word) < 25:
                 result.append(word)
 
         return result
