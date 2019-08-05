@@ -3,10 +3,10 @@ from elasticsearch import Elasticsearch
 import pandas as pd
 from pandas import DataFrame
 from datetime import datetime
-import os, errno
-from nltk.tokenize import word_tokenize, wordpunct_tokenize
-from ufal.morphodita import *
+import os
+import errno
 from preprocessor import Preprocessor
+from vectorizer import Vectorizer
 
 
 def exists_at_least_one(hit_dict):
@@ -14,6 +14,9 @@ def exists_at_least_one(hit_dict):
         if hit_dict.get(key, None) is not None:
             return True
     return False
+
+
+pre = Preprocessor()
 
 
 def transform_dict(hit_dict):
@@ -26,20 +29,35 @@ def transform_dict(hit_dict):
             new_dict['konspekt' + str(i)] = field_072['9']
     else:
         new_dict['konspekt0'] = hit_dict['072']['9']
+    text = ""
     for key in at_least_one:
         value = hit_dict.get(key, None)
         if value is None:
-            new_dict[key] = ""
+            continue
         else:
-            new_value = ""
             if isinstance(value, list):
                 for a in value:
-                    new_value = new_value + " " + a['a']
+                    text = text + " " + a['a']
             else:
-                new_value = value['a']
-            new_dict[key] = new_value
+                text = text + " " + value['a']
+
+    tokens = pre.remove_stop_words(text)
+    tokens = pre.lemmatize(tokens)
+    new_dict['text'] = ' '.join(tokens)
     df = DataFrame(new_dict, index=[hit_dict['001']])
     return df
+
+
+def save_dataframe(dataframe):
+    date_now = datetime.now()
+    results_dir = date_now.strftime('%Y_%m_%d_%H_%M')
+    try:
+        os.makedirs(results_dir)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+
+    dataframe.to_csv(results_dir + '/medzivysledok.csv')
 
 
 index = "records_mzk_filtered"
@@ -146,38 +164,16 @@ s = Search(using=es, index=index)
 #         "must_not": []
 #     }
 # }})
-# s = s.source(["001", "OAI", "072"] + at_least_one)
-#
-# s.execute()
-# dataframes = []
-# for hit in s:
-#     hit_dict = hit.to_dict()
-#     if exists_at_least_one(hit_dict):
-#         df = transform_dict(hit_dict)
-#         dataframes.append(df)
-# data = pd.concat(dataframes)
-# print(data)
-# date_now = datetime.now()
-# results_dir = date_now.strftime('%Y_%m_%d_%H_%M')
-# try:
-#     os.makedirs(results_dir)
-# except OSError as e:
-#     if e.errno != errno.EEXIST:
-#         raise
-#
-# data.to_csv(results_dir + '/medzivysledok.csv')
-text = """Z A.I. jakožto příslibu, který s trochou nadsázky vyřeší všechny neduhy světa, se tak stal plytký buzzword, 
-pod kterým si každý představuje něco jiného. Jedni za těmi dvěma písmenky vidí potenciálního strašáka a bytost, která 
-nás všechny ovládne, ti střízlivější především asistovanou a rozšířenou inteligenci, která zvýší naši produktivitu, no 
-a ten zbytek hromadu exotických studií a experimentů, které jsou sice efektní, ale samy o sobě v praxi naprosto k 
-ničemu. Do tohoto ranku patří třeba počítač, který porazil člověka ve hře go, nebo třeba algoritmus, který si 
-představuje věci a kreslí obrázky jako po hodně silné dávce LSD. Více na: 
-https://www.zive.cz/clanky/blizi-se-dalsi-revoluce-umela-inteligence-nam-v-roce-2030-prinese-349-bilionu-korun-a-leckomu-sebere-praci/sc-3-a-188951/default.aspx"""
+s = s.source(["001", "OAI", "072"] + at_least_one)
 
-# print(word_tokenize(text))
-
-pre = Preprocessor()
-
-tokens = pre.remove_stop_words(text)
-tokens = pre.lemmatize(tokens)
-print(tokens)
+s.execute()
+dataframes = []
+for hit in s:
+    hit_dict = hit.to_dict()
+    if exists_at_least_one(hit_dict):
+        df = transform_dict(hit_dict)
+        dataframes.append(df)
+data = pd.concat(dataframes)
+vectorizer = Vectorizer()
+tfidf = vectorizer.bag_of_words(data)
+print(list(tfidf.toarray()))
