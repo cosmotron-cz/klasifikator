@@ -1,12 +1,14 @@
 from ufal.morphodita import *
-import sys
+from pathlib import Path
+
 
 class Preprocessor(object):
     def __init__(self, dictionary=None, stop_words=None):
         if dictionary is not None:
             self.dictionary = dictionary
         else:
-            self.dictionary = "./dict/czech-morfflex-161115-pos_only.dict"
+            dir_path = Path(__file__).resolve().parent
+            self.dictionary = str(dir_path / "dict/czech-morfflex-161115-pos_only.dict")
         if stop_words is not None:
             self.stop_words = stop_words
         else:

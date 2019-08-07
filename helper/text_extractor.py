@@ -1,5 +1,7 @@
 import os
 import tarfile
+from nltk.tokenize import sent_tokenize
+from preprocessor import Preprocessor
 
 
 class TextExtractor:
@@ -48,7 +50,7 @@ class TextExtractor:
 
         text = ""
         for sorted_page in sorted_pages:
-            page = pages.get(sorted_page, "")
+            page = pages.get(sorted_page, "").replace('\n', ' ')
             text = text + page
 
         gz.close()
@@ -93,9 +95,48 @@ class TextExtractor:
 
         text = ""
         for sorted_page in sorted_pages:
-            page = pages.get(sorted_page, "")
+            page = pages.get(sorted_page, "").replace('\n', ' ')
             text = text + page
 
         gz.close()
         return text
+
+
+class TextExtractorPre:
+    def __init__(self, directory, sorted_pages, preprocess=True):
+        self.extractor = iter(TextExtractor(directory, sorted_pages))
+        self.processor = Preprocessor()
+        self.preprocess = preprocess
+
+    def into_sentences(self, text):
+        result = []
+        sentences = sent_tokenize(text)
+        for sentence in sentences:
+            if self.preprocess:
+                tokens = self.processor.remove_stop_words(sentence)
+                tokens = self.processor.lemmatize(tokens)
+            else:
+                tokens = self.processor.tokenize(sentence)
+            result.append(tokens)
+        return result
+
+    def __iter__(self):
+        text = next(self.extractor)
+        self.sentences = self.into_sentences(text)
+        return self
+
+    def __next__(self):
+        if len(self.sentences) == 0:
+            text = next(self.extractor)
+            self.sentences = self.into_sentences(text)
+            result = self.sentences[0]
+            self.sentences.pop(0)
+            return result
+        else:
+            result = self.sentences[0]
+            self.sentences.pop(0)
+            return result
+
+
+
 
