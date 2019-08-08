@@ -6,7 +6,8 @@ from datetime import datetime
 import os
 import errno
 from preprocessor import Preprocessor
-from vectorizer import Vectorizer
+from vectorizer import Vectorizer, D2VVectorizer
+from helper.text_extractor import TextExtractorPre
 
 
 def exists_at_least_one(hit_dict):
@@ -174,6 +175,14 @@ for hit in s:
         df = transform_dict(hit_dict)
         dataframes.append(df)
 data = pd.concat(dataframes)
-vectorizer = Vectorizer()
-tfidf = vectorizer.bag_of_words(data)
-print(list(tfidf.toarray()))
+# vectorizer = Vectorizer()
+# tfidf = vectorizer.bag_of_words(data)
+# print(list(tfidf.toarray()))
+# te = TextExtractorPre('C:/Users/jakub/Documents/test', 'C:/Users/jakub/Documents/sorted_pages_zip/sorted_pages')
+vectorizer = D2VVectorizer(model='./test.model')
+#vectorizer.save_model('./test.model')
+
+data['lematized'] = data['text'].apply(pre.lemmatize)
+data['vector'] = data['lematized'].apply(vectorizer.get_vector)
+print(data)
+#print(new_data)
