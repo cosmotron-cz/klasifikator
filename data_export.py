@@ -46,25 +46,30 @@ class DataExporter:
                     elem.tag = elem.tag.split('}', 1)[1]  # odstranenie namespace
                 if elem.tag == "record":
                     found = elem.findall("./datafield[@tag='080']/subfield[@code='a']")
-                    if found is not[]:
+                    found_072 = elem.xpath("./datafield[@tag='072']/subfield[contains(text(),'Konspekt')]")
+                    if found != [] and found_072 == []:
                         konspecs = {}
+                        mdts = []
                         for field_080 in found:
-                            category, subcategory, description = mk.find_category(field_080.text)
-                            if category == -1:
-                                continue
-                            if konspecs.get(str(category), None) is None:
-                                konspecs[str(category)] = {"subcategory": subcategory, "description": description}
-                            elif len(konspecs[str(category)]['subcategory']) < len(subcategory):
-                                konspecs[str(category)]['subcategory'] = subcategory
-                                konspecs[str(category)]['description'] = description
+                            mdts.append(field_080.text)
+                        konspekt_one, konspekt_two, konspekt_three = mk.find_and_choose(mdts)
+                        if konspekt_one is None and konspekt_two is None and konspekt_three is None:
+                            continue
+                        if konspekt_one is not None:
+                            konspecs[konspekt_one['category']] = {'subcategory': konspekt_one['subcategory'],
+                                                                        "description": konspekt_one['description']}
+                        if konspekt_two is not None:
+                            konspecs[konspekt_two['category']] = {'subcategory': konspekt_two['subcategory'],
+                                                                  "description": konspekt_two['description']}
+                        if konspekt_three is not None:
+                            konspecs[konspekt_three['category']] = {'subcategory': konspekt_three['subcategory'],
+                                                                  "description": konspekt_three['description']}
                         for key, val in konspecs.items():
                             new_072 = DataExporter.create_072(key, val['subcategory'], val['description'])
                             elem.append(new_072)
                         if len(konspecs) > 0:
                             new_file.write(etree.tostring(elem, encoding="utf8", xml_declaration=False, method="xml", pretty_print=True))
-                        #new_tree = etree.ElementTree(elem)
-                        #new_tree.write(new_file, encoding="utf8", xml_declaration=False, method="xml", pretty_print=True)
-                        elem.clear()
+                    elem.clear()
         new_file.write("</all>".encode("utf8"))
         new_file.close()
 
@@ -98,6 +103,6 @@ class DataExporter:
         return field_072
 
 path = 'C:\\Users\\jakub\\Documents\\metadata_mzk.xml'
-path_to = 'C:\\Users\\jakub\\Documents\\export2_mzk.xml'
+path_to = 'C:\\Users\\jakub\\Documents\\export4_mzk.xml'
 DataExporter.add_konspect_xml(path, path_to)
 #DataExporter.change_order_attr(path)

@@ -7,6 +7,7 @@ class MatchKonspekt():
         k = 0
         dir_path = os.path.dirname(os.path.realpath(__file__))
         with open(dir_path + "\\rules.txt", "r", encoding="utf8") as file:
+            slash_mdt = []
             for line in file:
                 parts = line.split("$$")
                 if "b1" == parts[2]:
@@ -18,12 +19,93 @@ class MatchKonspekt():
                 new_dict = {"category": k, "description": desc, "original": ""}
                 self.rules[pattern] = new_dict
                 if pattern.find('/') != -1:
-                    unpacked = self.unpack_mdt(pattern)
-                    if len(unpacked) == 1:
-                        continue
-                    for mdt in unpacked:
-                        new_unpacked_dict = {"category": k, "description": desc, "original": pattern}
-                        self.rules[mdt] = new_unpacked_dict
+                    slash_mdt.append(pattern)
+        for pattern in slash_mdt:
+            unpacked = self.unpack_mdt(pattern)
+            original = self.rules[pattern]
+            if len(unpacked) == 1:
+                continue
+            for mdt in unpacked:
+                if self.rules.get(mdt, None) is not None:
+                    continue
+                new_unpacked_dict = {"category": original['category'], "description": original['description'],  # TODO treba doplnit spravne popisy pre kategorie ktore nie su v povodnej tabulke
+                                     "original": pattern}
+                self.rules[mdt] = new_unpacked_dict
+
+    def find_and_choose(self, mdts):
+        result = [None, None, None]
+        all_konspekts = []
+        second = ["37.016", "01", "929", "8-93", "821-93", "09", "912"]
+        for mdt in mdts:
+            category, subcategory, description = self.find_category(mdt)
+            if category != -1:
+                if result[0] is None:
+                    result[0] = {"category": category, "subcategory": subcategory, "description": description}
+                    continue
+                all_konspekts.append({"category": category, "subcategory": subcategory, "description": description})
+        for found in all_konspekts:
+            if result[2] is None and found['subcategory'] != result[0]['subcategory'] and \
+                    self.is_childs_literature(found["subcategory"]):
+                rule = self.rules.get(found["subcategory"], None)
+                result[2] = {"category": rule["category"], "subcategory": found["subcategory"],
+                             "description": rule["description"]}
+                continue
+            if result[2] is None and found['subcategory'] != result[0]['subcategory'] and \
+                    found["subcategory"] in second:
+                rule = self.rules.get(found["subcategory"], None)
+                result[2] = {"category": rule["category"], "subcategory": found["subcategory"],
+                             "description": rule["description"]}
+                continue
+            if result[1] is None and found['category'] != result[0]['category'] and \
+                    (result[2] is None or found['subcategory'] != result[2]['subcategory']):
+                rule = self.rules.get(found["subcategory"], None)
+                result[1] = {"category": rule["category"], "subcategory": found["subcategory"],
+                             "description": rule["description"]}
+        return result[0], result[1], result[2]
+
+    def find_category(self, mdt):
+        mdt = re.sub('[^\d.+\/:\[\]=()\"-]+', '', mdt)
+        match = self.rules.get(mdt, None)
+        if match is not None:
+            return match["category"], mdt, match["description"]
+        unpacked = self.unpack_mdt(mdt)
+        for u in unpacked:
+            while u != "":
+                match = self.rules.get(u, None)
+                if match is not None:
+                    return match["category"], u, match["description"]
+                u = self.shorten_from_right(u)
+        return -1, "", ""
+
+    def compare_mdt(self, mdt1, mdt2):
+        mdt1_cat_len = self.length_category(mdt1)
+        mdt2_cat_len = self.length_category(mdt2)
+
+        if mdt1_cat_len > mdt2_cat_len:
+            return mdt1
+        elif mdt2_cat_len > mdt1_cat_len:
+            return mdt2
+        else:
+            if len(mdt1) > mdt1_cat_len and mdt1[mdt1_cat_len] == '/':
+                return mdt2
+            elif len(mdt2) > mdt2_cat_len and mdt2[mdt1_cat_len] == '/':
+                return mdt1
+            else:
+                if len(mdt1) >= len(mdt2):
+                    return mdt1
+                else:
+                    return mdt2
+
+    def length_category(self, mdt):
+        mdt_cat_len = 0
+        for c in mdt:
+            if c.isdigit():
+                mdt_cat_len += 1
+            elif c == '.' and mdt_cat_len % 4 == 3:
+                mdt_cat_len += 1
+            else:
+                break
+        return mdt_cat_len
 
     def unpack_mdt(self, mdt):
         unpacked = []
@@ -39,15 +121,13 @@ class MatchKonspekt():
         sign = ''
         if found_numbers_only is not None:
             left, right = found_numbers_only.span()
-            if (left > 0 and (mdt[left-1] == '(' or mdt[left-1] == '"')) or \
-                    (right < len(mdt) - 1 and (mdt[right] == ')' or mdt[right] == '"')):
+            if (left > 0 and mdt[left-1] == '"') or (right < len(mdt) - 1 and mdt[right] == '"'):
                 return [mdt]
             bot, top = mdt[left:right].split('/')
 
         elif found_with_dot is not None:
             left, right = found_with_dot.span()
-            if (left > 0 and (mdt[left - 1] == '(' or mdt[left - 1] == '"')) or \
-                    (right < len(mdt) - 1 and (mdt[right] == ')' or mdt[right] == '"')):
+            if (left > 0 and mdt[left - 1] == '"') or (right < len(mdt) - 1 and mdt[right] == '"'):
                 return [mdt]
             part = mdt[left + 1:right]
             bot, top = part.split('/.')
@@ -77,66 +157,6 @@ class MatchKonspekt():
 
         return unpacked
 
-    def unpack_mdt2(self, mdt):
-        position = mdt.find('/')
-        sign = ""
-        if position == -1:
-            return []
-        if mdt[position+1] != '.' and mdt[position+1] != '-':
-            found_parenthesis = re.search(r"\(.+/.+\)", mdt)
-            found_quotes = re.search(r"\".+/.+\"", mdt)
-            if found_parenthesis is not None:
-                left, right = found_parenthesis.span()
-                right -= 1
-                bot, top = mdt[left+1:right].split('/')
-            elif found_quotes is not None:
-                left, right = found_quotes.span()
-                right -= 1
-                bot, top = mdt[left + 1:right].split('/')
-            else:
-                bot, top = mdt.split('/')
-                left = 0
-                right = len(mdt)
-        elif mdt[position+2].isdigit():
-            sign = mdt[position + 1]
-            left = position - 1
-            right = position + 2
-            while mdt[left] != sign:
-                left -= 1
-            while right < len(mdt) and mdt[right].isdigit():
-                right += 1
-            part = mdt[left+1:right]
-            bot, top = part.split('/' + sign)
-        else:
-            print("neviem co robit")
-            return [mdt]
-        if len(bot) != len(top):
-            print("dorobit :" + mdt)
-            return []
-            # raise Exception("horna a dolna hranica nemaju rovnaku dlzku: " + mdt)
-        number_lenght = len(bot)
-        try:
-            bot = int(bot)
-            top = int(top)
-        except ValueError as ve:
-            print(ve)
-            print("chyba: " + mdt)
-            return []
-        unpacked = []
-        for i in range(bot, top+1):
-            if mdt[left] == '(' or mdt[left] == '"':
-                str_i = self.fill_zeros(i, number_lenght)
-                new_mdt = mdt[:left+1] + sign + str_i + mdt[right:]
-            else:
-                str_i = self.fill_zeros(i, number_lenght)
-                new_mdt = mdt[:left] + sign + str_i + mdt[right:]
-            unpacked.append(new_mdt)
-            if new_mdt.find('/') != -1:
-                children = self.unpack_mdt(new_mdt)
-                unpacked = unpacked + children
-
-        return unpacked
-
     def fill_zeros(self, number, length):
         str_number = str(number)
         if len(str_number) == length:
@@ -151,26 +171,15 @@ class MatchKonspekt():
             return mdt[:position]
         elif mdt[length-1] == ')':
             position = mdt.find('(')
-            return mdt[:position]
+            if mdt.count('(') > 1:
+                return mdt[:position]
+            if position == length - 2 or position == length - 3:
+                return mdt[:position]
+            else:
+                return mdt[:length-2] + mdt[length-1:]
         elif mdt[length-1] == ']':
             position = mdt.find('[')
             return mdt[:position]
-        elif mdt[length - 1] == ':':
-            return mdt[:length-1]
-        elif mdt[length - 1] == '(':
-            return mdt[:length-1]
-        elif mdt[length - 1] == '[':
-            return mdt[:length-1]
-        elif mdt[length - 1] == '.':
-            return mdt[:length-1]
-        elif mdt[length - 1] == '\'':
-            return mdt[:length-1]
-        elif mdt[length - 1] == '/':
-            return mdt[:length-1]
-        elif mdt[length - 1] == '-':
-            return mdt[:length-1]
-        elif mdt[length - 1] == '=':
-            return mdt[:length - 1]
         elif mdt[length-1].isdigit():
             if mdt[length-2].isdigit():
                 return mdt[:length-1]
@@ -179,22 +188,11 @@ class MatchKonspekt():
                     return mdt[:length-3]
                 else:
                     return mdt[:length-2]
-        elif mdt.find(' ') != -1:
-            splitted = mdt.split(' ')
-            return splitted[0]
         else:
-            raise Exception("chyba pri spracovani mdt - na konci necakany znak: " + mdt)
+            return mdt[:length - 1]
 
-    def find_category(self, mdt):
-        mdt = re.sub('[^\d.+\/:\[\]=()\"-]+', '', mdt)
-        unpacked = self.unpack_mdt(mdt)
-        for u in unpacked:
-            while u != "":
-                match = self.rules.get(u, None)
-                if match is not None:
-                    if match["original"] != "":
-                        return match["category"], match["original"], match["description"]
-                    else:
-                        return match["category"], u, match["description"]
-                u = self.shorten_from_right(u)
-        return -1, "", ""
+    def is_childs_literature(self, mdt):
+        if "-053.2" in mdt or "(0.053.2)" in mdt:
+            return True
+        else:
+            return False
