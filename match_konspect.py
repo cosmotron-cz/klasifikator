@@ -28,7 +28,7 @@ class MatchKonspekt():
             for mdt in unpacked:
                 if self.rules.get(mdt, None) is not None:
                     continue
-                new_unpacked_dict = {"category": original['category'], "description": original['description'],  # TODO treba doplnit spravne popisy pre kategorie ktore nie su v povodnej tabulke
+                new_unpacked_dict = {"category": original['category'], "description": original['description'],
                                      "original": pattern}
                 self.rules[mdt] = new_unpacked_dict
 
@@ -65,15 +65,27 @@ class MatchKonspekt():
 
     def find_category(self, mdt):
         mdt = re.sub('[^\d.+\/:\[\]=()\"-]+', '', mdt)
-        match = self.rules.get(mdt, None)
-        if match is not None:
-            return match["category"], mdt, match["description"]
+        found_slash = re.search(r"^[\.\d]+/[\.\-\d]\d+", mdt)
+        if found_slash is not None:
+            slash_mdt = mdt
+            right = found_slash.end()
+            while len(slash_mdt) >= right:
+                match = self.rules.get(slash_mdt, None)
+                if match is not None:
+                    if match["original"] != "":
+                        return match["category"], match["original"], match["description"]
+                    else:
+                        return match["category"], slash_mdt, match["description"]
+                slash_mdt = self.shorten_from_right(slash_mdt)
         unpacked = self.unpack_mdt(mdt)
         for u in unpacked:
             while u != "":
                 match = self.rules.get(u, None)
                 if match is not None:
-                    return match["category"], u, match["description"]
+                    if match["original"] != "":
+                        return match["category"], match["original"], match["description"]
+                    else:
+                        return match["category"], u, match["description"]
                 u = self.shorten_from_right(u)
         return -1, "", ""
 

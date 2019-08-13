@@ -66,6 +66,8 @@ class Tester:
                                 already_tested.append(konspect['category'])
                                 if konspect['subcategory'] == real['a']:
                                     correct_subcategory += 1
+                                # else:
+                                #     print("category: " + str(konspect['category']) + " real subcategory: " + real['a'] + " auto category: " + konspect['subcategory'] + " mdt: " + str(field_080))
                     except KeyError as ke:
                         print("dict doesnt contain: " + str(ke))
                         break
