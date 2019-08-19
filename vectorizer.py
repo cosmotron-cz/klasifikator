@@ -1,19 +1,30 @@
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-import pandas as pd
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
-from gensim.test.utils import get_tmpfile
+import pickle
+from pathlib import Path
 
 
 class Vectorizer():
-    def tfidf(self, data, ngram=1, vocabulary=None):
-        vectorizer = TfidfVectorizer(vocabulary=vocabulary, ngram_range=(1, ngram))
-        matrix = vectorizer.fit_transform(data['text'])
+    def __init__(self, vectorizer='tfidf', ngram=1, vocabulary=None, load_vec=None):
+        if load_vec is not None:
+            with open(load_vec, "wb") as file:
+                self.vectorizer = pickle.load(file)
+            return
+        if vectorizer == 'tfidf':
+            self.vectorizer = TfidfVectorizer(vocabulary=vocabulary, ngram_range=(1, ngram))
+        elif vectorizer == 'bow':
+            self.vectorizer = CountVectorizer(vocabulary=vocabulary, ngram_range=(1, ngram))
+        else:
+            raise Exception("Unknown vectorizer")
+
+    def get_matirx(self, data):
+        matrix = self.vectorizer.fit_transform(data['text'])
         return matrix
 
-    def bag_of_words(self, data, ngram=1, vocabulary=None):
-        vectorizer = CountVectorizer(vocabulary=vocabulary, ngram_range=(1, ngram))
-        matrix = vectorizer.fit_transform(data['text'])
-        return matrix
+    def save(self, path):
+        vec_path = str(Path(path) / "vectorizer.pickle")
+        with open(vec_path, "wb") as file:
+            pickle.dump(self.vectorizer, file)
 
 
 class D2VVectorizer():
