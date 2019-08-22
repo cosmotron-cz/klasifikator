@@ -2,6 +2,7 @@ import os
 import tarfile
 from nltk.tokenize import sent_tokenize
 from preprocessor import Preprocessor
+from gensim.models.doc2vec import TaggedDocument
 
 
 class TextExtractor:
@@ -103,8 +104,13 @@ class TextExtractor:
 
 
 class TextExtractorPre:
+    """
+    trieda ktora je dekoratorom extraktoru textov
+    spravi rozdelenie na vety a lematizaciu
+    """
     def __init__(self, directory, sorted_pages, preprocess=True):
-        self.extractor = iter(TextExtractor(directory, sorted_pages))
+        self.directory = directory
+        self.sorted_pages = sorted_pages
         self.processor = Preprocessor()
         self.preprocess = preprocess
 
@@ -121,6 +127,7 @@ class TextExtractorPre:
         return result
 
     def __iter__(self):
+        self.extractor = iter(TextExtractor(self.directory, self.sorted_pages))
         text = next(self.extractor)
         self.sentences = self.into_sentences(text)
         return self
@@ -128,6 +135,8 @@ class TextExtractorPre:
     def __next__(self):
         if len(self.sentences) == 0:
             text = next(self.extractor)
+            if text == '':
+                return ''
             self.sentences = self.into_sentences(text)
             result = self.sentences[0]
             self.sentences.pop(0)
@@ -138,5 +147,27 @@ class TextExtractorPre:
             return result
 
 
+class TextExtractorPreTag:
+    def __init__(self, directory, sorted_pages, preprocess=True):
+        self.directory = directory
+        self.sorted_pages = sorted_pages
+        self.processor = Preprocessor()
+        self.preprocess = preprocess
 
+    def __iter__(self):
+        self.extractor = iter(TextExtractor(self.directory, self.sorted_pages))
+        self.index = -1
+        return self
 
+    def __next__(self):
+        document = next(self.extractor)
+        if document == "":
+            self.index += +1
+            return TaggedDocument(document, [self.index])
+        if self.preprocess:
+            document = self.processor.remove_stop_words(document)
+            document = self.processor.lemmatize(document)
+        else:
+            document = self.processor.tokenize(document)
+        self.index += 1
+        return TaggedDocument(document, [self.index])

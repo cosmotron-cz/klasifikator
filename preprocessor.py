@@ -76,7 +76,7 @@ class Preprocessor(object):
         tokens = []
         while self.tokenizer.nextSentence(forms, ranges):
             for word in forms:
-                tokens.append(word)
+                tokens.append(word.lower())
 
         return tokens
 

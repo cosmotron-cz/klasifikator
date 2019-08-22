@@ -17,7 +17,7 @@ class Vectorizer():
         else:
             raise Exception("Unknown vectorizer")
 
-    def get_matirx(self, data):
+    def get_matrix(self, data):
         matrix = self.vectorizer.fit_transform(data['text'])
         return matrix
 
@@ -38,8 +38,11 @@ class D2VVectorizer():
                 self.model = model
             return
         if data is not None:
-            documents = [TaggedDocument(doc, [i]) for i, doc in enumerate(data)]
-            self.model = Doc2Vec(documents, vector_size=5, window=2, min_count=1, workers=4)
+            self.model = Doc2Vec(vector_size=300, dm=1, window=3, min_count=1, epochs=10, workers=8)
+            print("building vocabulary")
+            self.model.build_vocab(data)
+            print("star training")
+            self.model.train(data, total_examples=self.model.corpus_count, epochs=self.model.epochs)
             self.model.delete_temporary_training_data(keep_doctags_vectors=True, keep_inference=True)
 
     def save_model(self, path):
