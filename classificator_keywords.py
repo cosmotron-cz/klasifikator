@@ -29,9 +29,9 @@ class Classificator:
         self.pre = Preprocessor()
         index = "records_mzk_filtered"
 
-        self.es = Elasticsearch()
-        s = Search(using=self.es, index=index)
-
+        # self.es = Elasticsearch()
+        # s = Search(using=self.es, index=index)
+        #
         # s = s.source(["001", "OAI", "072"] + at_least_one)
         #
         # s.execute()
@@ -49,11 +49,11 @@ class Classificator:
         #             continue
         #         dataframes.append(df)
         # self.data = pd.concat(dataframes)
-        self.data = pd.read_csv("C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\lemmatize_selected.csv", index_col=0)
-        self.data = self.data.dropna(axis=0)
+        self.data = pd.read_csv("C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\bow_select.csv", index_col=0)
+        # self.data = self.data.dropna(axis=0)
         self.vectorizer = Vectorizer(vectorizer="bow", ngram=2)
-        matrix = self.vectorizer.get_matrix(self.data)
-        self.data['vector'] = list(matrix)
+        # matrix = self.vectorizer.get_matrix(self.data)
+        # self.data['vector'] = list(matrix)
         self.model = "test"
 
     def exists_at_least_one(self, hit_dict):
@@ -91,9 +91,9 @@ class Classificator:
     def save_state(self):
         self.save_dataframe(self.data, self.results_dir)
         self.vectorizer.save(self.results_dir)
-        vec_path = str(Path(self.results_dir) / "model.pickle")
-        with open(vec_path, "wb") as file:
-            pickle.dump(self.vectorizer, file)
+        model_path = str(Path(self.results_dir) / "model.pickle")
+        with open(model_path, "wb") as file:
+            pickle.dump(self.model, file)
 
     def save_dataframe(self, dataframe, path=None):
         if path is None:
@@ -107,12 +107,14 @@ class Classificator:
             if e.errno != errno.EEXIST:
                 raise
 
-        dataframe.to_csv(results_dir + '/medzivysledok.csv')
+        dataframe.to_csv(results_dir + '/data.csv')
 
     def split_test_train(self, data):
+        data = data[data.konspekt.isin(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15'
+                                            , '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26'])]
         y = data.konspekt
         X = data.drop('konspekt', axis=1)
-        return train_test_split(X, y, test_size=0.33, random_state=52)
+        return train_test_split(X, y, test_size=0.25, random_state=52, stratify=y)
 
     def undersample(self, X, y):
         rus = RandomUnderSampler()
@@ -120,26 +122,41 @@ class Classificator:
         indices = rus.sample_indices_
         return X.iloc[indices], y.iloc[indices]
 
+    def save_test_train(self, x_train, x_test, y_train, y_test, path=None):
+        x_test['konspekt'] = y_test
+        x_train['konspekt'] = y_train
+        if path is None:
+            date_now = datetime.now()
+            results_dir = date_now.strftime('%Y_%m_%d_%H_%M')
+        else:
+            results_dir = path
+        try:
+            os.makedirs(results_dir)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+
+        x_test.to_csv(results_dir + '/test.csv')
+        x_train.to_csv(results_dir + '/train.csv')
+
 
 
 # vectorizer = Vectorizer()
 # tfidf = vectorizer.bag_of_words(data)
 # print(list(tfidf.toarray()))
-te = TextExtractorPreTag('C:/Users/jakub/Documents/ziped1', 'C:/Users/jakub/Documents/sorted_pages_zip/sorted_pages')
-vectorizer = D2VVectorizer(data=te)
-vectorizer.save_model('./d2v.model')
+# te = TextExtractorPreTag('C:/Users/jakub/Documents/ziped1', 'C:/Users/jakub/Documents/sorted_pages_zip/sorted_pages')
+# vectorizer = D2VVectorizer(data=te)
+# vectorizer.save_model('./d2v.model')
 
 #data['lematized'] = data['text'].apply(pre.lemmatize)
 #data['vector'] = data['lematized'].apply(vectorizer.get_vector)
 #data = data[~data.konspekt.isin(['6', '10', '13'])] odstranenie najmensich tried
-# classificator = Classificator()
+classificator = Classificator()
 # classificator.save_state()
 # classificator.data = classificator.data.replace({'konspekt': '10'}, '6') # spojenie najmensich tried
 # classificator.data = classificator.data.replace({'konspekt': '13'}, '6') # spojenie najmensich tried
 # classificator.save_state()
 # #classificator.save_dataframe(classificator.data)
-# X_train, X_test, y_train, y_test = classificator.split_test_train(classificator.data)
-# X_resampled, y_resampled = classificator.undersample(X_train, y_train)
-# print(X_resampled)
-#print(data)
-#print(new_data)
+X_train, X_test, y_train, y_test = classificator.split_test_train(classificator.data)
+X_train, y_train = classificator.undersample(X_train, y_train)
+classificator.save_test_train(X_train, X_test, y_train, y_test)
