@@ -129,3 +129,4 @@ venv.bak/
 .idea/misc.xml
 .idea/modules.xml
 .idea/
+/processed data/
