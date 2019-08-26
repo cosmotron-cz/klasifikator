@@ -1,5 +1,6 @@
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
+import gensim
 import pickle
 from pathlib import Path
 
@@ -29,6 +30,7 @@ class Vectorizer():
 
 class D2VVectorizer():
     def __init__(self, data=None, model=None):
+        assert gensim.models.doc2vec.FAST_VERSION > -1
         if data is None and model is None:
             raise Exception("No data or model for D2VVectorizer") # TODO po natrenovani dat default model
         if model is not None:
@@ -38,15 +40,17 @@ class D2VVectorizer():
                 self.model = model
             return
         if data is not None:
-            self.model = Doc2Vec(vector_size=300, dm=1, window=3, min_count=1, epochs=10, workers=8)
-            print("building vocabulary")
-            self.model.build_vocab(data)
-            print("star training")
-            self.model.train(data, total_examples=self.model.corpus_count, epochs=self.model.epochs)
-            self.model.delete_temporary_training_data(keep_doctags_vectors=True, keep_inference=True)
+            print("start training")
+            self.model = Doc2Vec(data, vector_size=300, dm=1, window=3, min_count=1, epochs=10, workers=8)
+            # print("building vocabulary")
+            # self.model.build_vocab(data)
+            # print("star training")
+            # self.model.train(data, total_examples=self.model.corpus_count, epochs=self.model.epochs)
+            # self.model.delete_temporary_training_data(keep_doctags_vectors=True, keep_inference=True)
 
     def save_model(self, path):
         self.model.save(path)
+        self.model.delete_temporary_training_data(keep_doctags_vectors=True, keep_inference=True)
 
     def get_vector(self, text):
         return self.model.infer_vector(text)

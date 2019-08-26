@@ -41,7 +41,10 @@ class TextExtractor:
         file = self.files[0]
         gz = tarfile.open(os.path.join(self.directory, file), "r:gz")
         uuid = file.split('.')[0].replace(':', '_')
-        sorted_pages = self.get_sorted_pages(self.sorted_pages[uuid])
+        sorted_pages_path = self.sorted_pages.get(uuid, None)
+        if sorted_pages_path is None:
+            return ""
+        sorted_pages = self.get_sorted_pages(sorted_pages_path)
         pages = {}
         for gz_member in gz.getmembers():
             if ".txt" not in gz_member.name:
