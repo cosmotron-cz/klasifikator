@@ -18,6 +18,13 @@ class Vectorizer():
         else:
             raise Exception("Unknown vectorizer")
 
+    def fit(self, data):
+        self.vectorizer.fit(data['text'])
+
+    def transform(self, data):
+        matrix = self.vectorizer.transform(data['text'])
+        return matrix
+
     def get_matrix(self, data):
         matrix = self.vectorizer.fit_transform(data['text'])
         return matrix
