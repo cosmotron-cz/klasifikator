@@ -1,7 +1,7 @@
 from elasticsearch_dsl import Search
 from elasticsearch import Elasticsearch
 import pandas as pd
-from pandas import DataFrame
+from pandas import DataFrame, Series
 from datetime import datetime
 import os
 import errno
@@ -16,6 +16,8 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import precision_recall_fscore_support
 from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import StratifiedKFold
+import numpy as np
 
 # at_least_one = ["600", "610", "611", "630", "650", "500", "501", "502", "504", "505", "506", "507", "508",
 #                         "510", "511",
@@ -30,6 +32,9 @@ class Classificator:
     def __init__(self, fields, vectorizer, undersample, model):
         date_now = datetime.now()
         self.results_dir = date_now.strftime('%Y_%m_%d_%H_%M')
+        self.under = undersample
+        self.fields = fields
+        self.v = vectorizer
         # self.pre = Preprocessor()
         # index = "records_mzk_filtered"
 
@@ -54,39 +59,21 @@ class Classificator:
         #         dataframes.append(df)
         # self.data = pd.concat(dataframes)
         data_path = ""
-        test_path = ""
-        train_path = ""
         if fields == 'all':
             data_path = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\lem_all.csv"
-            if undersample is True:
-                train_path = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\bow_all_under\\train.csv"
-                test_path = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\bow_all_under\\test.csv"
-            else:
-                train_path = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\bow_all_all\\train.csv"
-                test_path = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\bow_all_all\\test.csv"
         elif fields == "select":
-            self.data = pd.read_csv("C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\lem_select.csv",
-                                    index_col=0)
-            if undersample is True:
-                train_path = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\bow_select_under\\train.csv"
-                test_path = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\bow_select_under\\test.csv"
-            else:
-                train_path = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\bow_select_all\\train.csv"
-                test_path = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\bow_select_all\\test.csv"
-
+            data_path = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\lem_select.csv"
         self.data = pd.read_csv(data_path, index_col=0)
         self.data = self.data.dropna(axis=0)
-        self.test = pd.read_csv(test_path, index_col=0)
-        self.train = pd.read_csv(train_path, index_col=0)
+        self.data = self.data[self.data.konspekt.isin(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12',
+                                                       '13', '14', '15', '16', '17', '18', '19', '20', '21', '22',
+                                                       '23', '24', '25', '26'])]
 
         self.vectorizer = Vectorizer(vectorizer=vectorizer, ngram=2)
         self.vectorizer.fit(self.data)
         # matrix = self.vectorizer.get_matrix(self.data)
         # self.data['vector'] = list(matrix)
         # self.vector = matrix
-
-        self.train = self.data.loc[self.train['001'].tolist()]
-        self.test = self.data.loc[self.test['001'].tolist()]
 
         self.model = model
 
@@ -171,7 +158,15 @@ class Classificator:
         rus = RandomUnderSampler()
         rus.fit_resample(X, y)
         indices = rus.sample_indices_
-        return X.iloc[indices], y.iloc[indices]
+        if isinstance(X, (DataFrame, Series)):
+            X_resample = X.iloc[indices]
+        else:
+            X_resample = X[indices]
+        if isinstance(y, (DataFrame, Series)):
+            y_resample = y.iloc[indices]
+        else:
+            y_resample = y[indices]
+        return X_resample, y_resample
 
     def save_test_train(self, x_train, x_test, y_train, y_test, path=None):
         x_test['konspekt'] = y_test
@@ -203,7 +198,7 @@ class Classificator:
         y_pred = self.model.predict(X)
         name = type(self.model).__name__
         params = self.model.get_params()
-        score = precision_recall_fscore_support(y_real, y_pred, average='macro')
+        score = precision_recall_fscore_support(y_real, y_pred, average='micro')
         print(name)
         print(params)
         print(score)
@@ -223,6 +218,60 @@ class Classificator:
             file.write(str(score))
             file.write('\n')
 
+    def fit_eval(self, save=False):
+        y = np.array(self.data['konspekt'].tolist())
+        X = self.vectorizer.transform(self.data)
+        skf = StratifiedKFold(n_splits=10)
+        skf.get_n_splits(X, y)
+        i = 0
+        precisions = []
+        recalls = []
+        fscores = []
+        for train_index, test_index in skf.split(X, y):
+            print("Start training iteration: " + str(i))
+            X_train, X_test = X[train_index], X[test_index]
+            y_train, y_test = y[train_index], y[test_index]
+            if self.under:
+                X_train, y_train = self.undersample(X_train, y_train)
+            self.model.fit(X_train, y_train)
+            print("End training")
+            i += 1
+            y_pred = self.model.predict(X_test)
+            score = precision_recall_fscore_support(y_test, y_pred, average='micro')
+            precisions.append(score[0])
+            recalls.append(score[1])
+            fscores.append(score[2])
+
+        name = type(self.model).__name__
+        params = self.model.get_params()
+        print("fields:" + self.fields + " vectorizer: " + self.v + " undersample: " + str(self.under))
+        print(name)
+        print(params)
+        print(precisions)
+        print(str(sum(precisions)/len(precisions)))
+        print(recalls)
+        print(str(sum(recalls) / len(recalls)))
+        print(fscores)
+        print(str(sum(fscores) / len(fscores)))
+        if save is False:
+            return
+        try:
+            os.makedirs(self.results_dir)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        result_path = str(Path(self.results_dir) / "result.txt")
+        with open(result_path, 'w+') as file:
+            file.write("fields:" + self.fields + " vectorizer: " + self.v + " undersample: " + str(self.under) + '\n')
+            file.write(str(name) + '\n')
+            file.write(str(params) + '\n')
+            file.write(str(precisions) + '\n')
+            file.write(str(sum(precisions)/len(precisions)) + '\n')
+            file.write(str(recalls) + '\n')
+            file.write(str(sum(recalls) / len(recalls)) + '\n')
+            file.write(str(fscores) + '\n')
+            file.write(str(sum(fscores) / len(fscores)) + '\n')
+
 # vectorizer = Vectorizer()
 # tfidf = vectorizer.bag_of_words(data)
 # print(list(tfidf.toarray()))
@@ -233,12 +282,11 @@ class Classificator:
 #data['lematized'] = data['text'].apply(pre.lemmatize)
 #data['vector'] = data['lematized'].apply(vectorizer.get_vector)
 #data = data[~data.konspekt.isin(['6', '10', '13'])] odstranenie najmensich tried
-clf = RandomForestClassifier()
+# clf = RandomForestClassifier(max_depth= 100, n_jobs=4)
 # clf = LinearSVC(random_state=0, tol=1e-5)
-# clf = MultinomialNB()
-classificator = Classificator("all", "tfidf", True, clf)
-classificator.fit()
-classificator.evaluate(True)
+clf = MultinomialNB()
+classificator = Classificator("select", "tfidf", False, clf)
+classificator.fit_eval(False)
 # classificator.save_model()
 # classificator.save_state()
 # classificator.data = classificator.data.replace({'konspekt': '10'}, '6') # spojenie najmensich tried
