@@ -18,6 +18,9 @@ from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold
 import numpy as np
+from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import classification_report
+import xgboost as xgb
 
 # at_least_one = ["600", "610", "611", "630", "650", "500", "501", "502", "504", "505", "506", "507", "508",
 #                         "510", "511",
@@ -272,6 +275,54 @@ class Classificator:
             file.write(str(fscores) + '\n')
             file.write(str(sum(fscores) / len(fscores)) + '\n')
 
+    def grid_search(self):
+        y = np.array(self.data['konspekt'].tolist())
+        X = self.vectorizer.transform(self.data)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+        # tuned_parameters = { 'alpha': np.linspace(0.5, 1.5, 6),
+        #                      'fit_prior': [True, False]}
+        # tuned_parameters = {'penalty': ['l1', 'l2'],
+        #                     'loss': ['hinge', 'squared_hinge'],
+        #                     'C': [0.001, 0.10, 0.1, 10, 25, 50, 100, 1000],
+        #                     'tol': [1e-2, 1e-3, 1e-4, 1e-5]}
+
+        # tuned_parameters = {
+        #                     'C': [0.001, 0.1, 10, 25, 50, 100, 1000]}
+        tuned_parameters = {'max_depth': [50],
+                            'n_estimators': [1, 2, 4, 8, 16, 32, 64, 100, 200]}
+        scores = ['f1']
+
+        for score in scores:
+            print("# Tuning hyper-parameters for %s" % score)
+            print()
+
+            clf = GridSearchCV(self.model, tuned_parameters, cv=4,
+                               scoring='%s_micro' % score, error_score=0.0, verbose=2)
+            clf.fit(X_train, y_train)
+
+            print("Best parameters set found on development set:")
+            print()
+            print(clf.best_params_)
+            print()
+            print("Grid scores on development set:")
+            print()
+            means = clf.cv_results_['mean_test_score']
+            stds = clf.cv_results_['std_test_score']
+            for mean, std, params in zip(means, stds, clf.cv_results_['params']):
+                print("%0.3f (+/-%0.03f) for %r"
+                      % (mean, std * 2, params))
+            print()
+
+            print("Detailed classification report:")
+            print()
+            print("The model is trained on the full development set.")
+            print("The scores are computed on the full evaluation set.")
+            print()
+            y_true, y_pred = y_test, clf.predict(X_test)
+            print(classification_report(y_true, y_pred))
+            print()
+
 # vectorizer = Vectorizer()
 # tfidf = vectorizer.bag_of_words(data)
 # print(list(tfidf.toarray()))
@@ -282,10 +333,12 @@ class Classificator:
 #data['lematized'] = data['text'].apply(pre.lemmatize)
 #data['vector'] = data['lematized'].apply(vectorizer.get_vector)
 #data = data[~data.konspekt.isin(['6', '10', '13'])] odstranenie najmensich tried
-# clf = RandomForestClassifier(max_depth= 100, n_jobs=4)
-# clf = LinearSVC(random_state=0, tol=1e-5)
-clf = MultinomialNB()
-classificator = Classificator("select", "tfidf", False, clf)
+# clf = RandomForestClassifier()
+clf = LinearSVC(random_state=0, tol=1e-5, C=1)
+# clf = xgb.XGBClassifier()
+# clf = MultinomialNB(alpha=0.5, fit_prior=True)
+classificator = Classificator("select", "bow", False, clf)
+# classificator.grid_search()
 classificator.fit_eval(False)
 # classificator.save_model()
 # classificator.save_state()
