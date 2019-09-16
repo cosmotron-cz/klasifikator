@@ -62,6 +62,7 @@
 200    $$a657$$b2$$cÚčetnictví
 200    $$a658$$b2$$cŘízení a správa podniku
 200    $$ak5$$b1$$cFilozofie a náboženství
+200    $$a101$$b2$$cFilozofie
 200    $$a11$$b2$$cMetafyzika
 200    $$a122/129$$b2$$cSpeciální metafyzika
 200    $$a13$$b2$$cFilozofie ducha
@@ -70,6 +71,9 @@
 200    $$a14(100-11)$$b2$$cOrientální filozofie
 200    $$a14(100-15)"15/20"$$b2$$cModerní západní filozofie
 200    $$a14(3)$$b2$$cAntická, starověká filozofie
+200    $$a16$$b2$$cLogika
+200    $$a165$$b2$$cTeorie poznání. Epistemologie
+200    $$a17$$b2$$cEtika. Morální filozofie
 200    $$a2$$b2$$cNáboženství
 200    $$a2-1$$b2$$cPřirozená teologie. Náboženská filozofie
 200    $$a2-23/-27$$b2$$cBible. Biblistika
@@ -77,25 +81,45 @@
 200    $$a21$$b2$$cPrehistorická a primitivní náboženství
 200    $$a22/24$$b2$$cNáboženství Dálného východu. Indická náboženství. Hinduismus. Buddhismus
 200    $$a25$$b2$$cNáboženství, mytologie, kulty
+200    $$a26$$b2$$cJudaismus
+200    $$a27$$b2$$cKřesťanství. Křesťanská církev všeobecně. Eklesiologie
+200    $$a27-1/-2$$b2$$cKřesťanská teologie. Dogmatická teologie
+200    $$a27-4$$b2$$cPraktická teologie. Morální teologie
+200    $$a27-46/-48$$b2$$cPastorální teologie
+200    $$a27-5$$b2$$cLiturgie. Křesťanské umění a symbolika. Duchovní život
+200    $$a27-78$$b2$$cKřesťanská sdružení, spolky a organizace. Řeholní řády
+200    $$a27-9$$b2$$cDějiny křesťanské církve
+200    $$a271/279$$b2$$cKřesťanské církve, sekty, denominace
 200    $$a28$$b2$$cIslám
 200    $$a29$$b2$$cModerní duchovní hnutí
 200    $$ak6$$b1$$cFyzika a příbuzné vědy
 200    $$a533$$b2$$cMechanika plynů. Aeromechanika. Fyzika plazmatu
 200    $$a534$$b2$$cMechanické kmity. Akustika
+200    $$a535$$b2$$cOptika
+200    $$a536$$b2$$cTeplo. Termodynamika
 200    $$a537$$b2$$cElektřina
 200    $$a537.6/.8$$b2$$cMagnetismus. Elektromagnetismus
 200    $$a539$$b2$$cFyzikální stavba hmoty. Jaderná fyzika. Molekulární fyzika
 200    $$a006$$b2$$cMetrologie. Standardizace
+200    $$a006.95$$b2$$cChronologie
+200    $$a5$$b2$$cPřírodní vědy. Matematické vědy
 200    $$a52$$b2$$cAstronomie
 200    $$a520$$b2$$cAstronomické přístroje a metody
 200    $$a521$$b2$$cTeoretická astronomie. Nebeská mechanika
+200    $$a523.3$$b2$$cZemě
+200    $$a523/524$$b2$$cSluneční soustava. Hvězdy. Vesmír
 200    $$a53$$b2$$cFyzika
 200    $$a531$$b2$$cObecná mechanika. Mechanika pevných a tuhých těles
 200    $$a532$$b2$$cMechanika tekutin obecně. Mechanika kapalin
 200    $$ak7$$b1$$cGeografie. Geologie. Vědy o zemi
 200    $$a528$$b2$$cGeodezie. Kartografie
+200    $$a549$$b2$$cMineralogie
+200    $$a55$$b2$$cVědy o Zemi. Geologické vědy
+200    $$a550$$b2$$cGeofyzika. Geochemie. Geobiologie. Užitá geologie
+200    $$a551$$b2$$cGeologie. Meteorologie. Klimatologie
 200    $$a552$$b2$$cPetrologie
 200    $$a553$$b2$$cLožisková geologie
+200    $$a556$$b2$$cHydrologie
 200    $$a56$$b2$$cPaleontologie
 200    $$a91$$b2$$cGeografie jako věda. Výzkum. Cestování
 200    $$a911$$b2$$cObecná geografie. Systematická geografie
@@ -113,6 +137,7 @@
 200    $$a913:94$$b2$$cHistorická geografie
 200    $$ak8$$b1$$cHistorie a pomocné historické vědy. Biografické studie
 200    $$a9$$b2$$cGeografie. Biografické studie. Dějiny
+200    $$a902$$b2$$cArcheologie
 200    $$a903$$b2$$cPravěk
 200    $$a904$$b2$$cKulturní památky historického období obecně
 200    $$a908$$b2$$cStudium oblastí a lokalit obecně
@@ -247,9 +272,9 @@
 200    $$a821.41.09$$b2$$cAfroasijské (hamitosemitské) literatury (o nich)
 200    $$a82-31/-34$$b2$$cMilostná, dobrodružná, fantastická próza (o ní)
 200    $$a821.432.09$$b2$$cNigerokonžské literatury (o nich)
-200    $$a8-9$$b2$$cLiterární kritika, věcná literatura a různé další žánry
-200    $$a8-93$$b2$$cLiteratura pro děti a mládež (o ní)
-200    $$a8-97$$b2$$cNáboženská literatura. Duchovní literatura (o ní)
+200    $$a82-9$$b2$$cLiterární kritika, věcná literatura a různé další žánry
+200    $$a82-93$$b2$$cLiteratura pro děti a mládež (o ní)
+200    $$a82-97$$b2$$cNáboženská literatura. Duchovní literatura (o ní)
 200    $$a821.51.09$$b2$$cUraloaltajské literatury (o nich)
 200    $$a82.0$$b2$$cLiteratura (teorie)
 200    $$a821.521.09$$b2$$cJaponská literatura (o ní)
@@ -285,7 +310,7 @@
 200    $$a821.162.09$$b2$$cZápadoslovanské literatury (o nich)
 200    $$a821.14.09$$b2$$cŘecká literatura (středověká, novodobá) (o ní)
 200    $$a821.14’02.09$$b2$$cŘecká antická literatura (o ní)
-200    $$ak12$$b1$$cKnihovnictví, informatika, všeobecné, referenční literatura 
+200    $$ak12$$b1$$cKnihovnictví, informatika, všeobecné, referenční literatura
 200    $$a01$$b2$$cBibliografie. Katalogy
 200    $$a00$$b2$$cVěda. Všeobecnosti. Základy vědy a kultury. Vědecká práce
 200    $$a02$$b2$$cKnihovnictví. Informatika
@@ -336,7 +361,8 @@
 200    $$a616$$b2$$cPatologie. Klinická medicína
 200    $$a616-053.2$$b2$$cPediatrie
 200    $$a616-053.9$$b2$$cGeriatrie
-200    $$a610-92$$b2$$cExperimentální medicína
+200    $$a616-092$$b2$$cExperimentální medicína
+200    $$a616.31$$b2$$cStomatologie
 200    $$a616.89$$b2$$cPsychiatrie
 200    $$a617$$b2$$cOrtopedie. Chirurgie. Oftalmologie
 200    $$a618$$b2$$cGynekologie. Porodnictví
@@ -383,6 +409,7 @@
 200    $$a159.97$$b2$$cPsychopatologie
 200    $$a159.98$$b2$$cAplikovaná psychologie
 200    $$ak18$$b1$$cSociologie
+200    $$a061.2$$b2$$cNevládní organizace a kooperace
 200    $$a3$$b2$$cSpolečenské vědy
 200    $$a308$$b2$$cSociografie
 200    $$a314$$b2$$cDemografie. Populace
@@ -397,7 +424,7 @@
 200    $$a343.97$$b2$$cKriminologie
 200    $$a36$$b2$$cZajištění duševních a materiálních potřeb
 200    $$a364$$b2$$cSociální problémy vyžadující podporu a pomoc. Sociální zabezpečení
-200    $$a36-1/-7$$b2$$cDruhy sociální pomoci a služeb
+200    $$a364-1/-7$$b2$$cDruhy sociální pomoci a služeb
 200    $$a364.3$$b2$$cSociální pojištění. Zdravotní pojištění. Důchody
 200    $$a365$$b2$$cPožadavky na bydlení a jejich uspokojování
 200    $$a366$$b2$$cOchrana spotřebitele. Chování spotřebitele
@@ -550,11 +577,11 @@
 200    $$a821.133.1$$b2$$cFrancouzská literatura, francouzsky psaná
 200    $$a821.133.1-1$$b2$$cFrancouzská poezie, francouzsky psaná
 200    $$a821.133.1-2$$b2$$cFrancouzské drama, francouzsky psané
-200    $$a821.133.1-3$$b2$$cFrancouzská próza, francouzsky psaná
 200    $$a821.134.2$$b2$$cŠpanělská literatura, španělsky psaná
 200    $$a821.134.2-1$$b2$$cŠpanělská poezie, španělsky psaná
 200    $$a821.134.2-2$$b2$$cŠpanělské drama, španělsky psané
 200    $$a821.134.2-3$$b2$$cŠpanělská próza, španělsky psaná
+200    $$a821.133.1-3$$b2$$cFrancouzská próza, francouzsky psaná
 200    $$a821.134.3$$b2$$cPortugalská literatura, portugalsky psaná
 200    $$a821.14$$b2$$cŘecká literatura (středověká, novodobá)
 200    $$a821.14’02$$b2$$cŘecká antická literatura

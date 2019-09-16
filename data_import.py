@@ -2,6 +2,8 @@ import xmltodict
 import xml.etree.ElementTree as etree
 from elasticsearch import Elasticsearch
 from elasticsearch import exceptions
+import os
+import tarfile
 
 
 class DataImporter:
@@ -216,21 +218,76 @@ class DataImporter:
         print("number of not tagged in czech with multiple 080: " + str(number_with_multiple_080))
         print(error_log)
 
-index = 'records_nkp_filtered'
-es = Elasticsearch()
-# es.indices.delete(index=index)
-request_body = {
-    "settings" : {
-        "number_of_shards": 5,
-        "number_of_replicas": 1,
-        "index.mapping.total_fields.limit": 3000
-    }
-}
-es.indices.create(index=index, body=request_body)
+    @staticmethod
+    def count_tagged_keywords(path):
+        have_note = 0
+        have_entry = 0
+        have_keyword = 0
+        error_log = []
+        for event, elem in etree.iterparse(path, events=('end', 'start-ns')):
+            if event == 'end':
+                if '}' in elem.tag:
+                    elem.tag = elem.tag.split('}', 1)[1]  # odstranenie namespace
+                if elem.tag == "record":
+                    try:
+                        xmlstr = etree.tostring(elem, encoding='unicode', method='xml')
+                        elem.clear()
+                        result = xmltodict.parse(xmlstr)
+                        result = result['record']  # odstranenie record tagu
+                        DataImporter.move_tag_names(result)
+                        if result.get('072', None) is None:
+                            continue
+                        if result.get('OAI', None) is None:
+                            continue
+                        field_600 = result.get('600', None)
+                        field_610 = result.get('610', None)
+                        field_611 = result.get('611', None)
+                        field_630 = result.get('630', None)
+                        field_650 = result.get('650', None)
+                        if field_600 is not None or field_610 is not None or field_611 is not None or \
+                                field_630 is not None or field_650 is not None:
+                            have_entry += 1
+                            if field_650 is not None:
+                                have_keyword += 1
+                        for i in range(500, 600):
+                            if result.get(str(i), None) is not None:
+                                have_note += 1
+                                break
+                    except Exception as error:
+                        print(error)
+                        error_log.append(str(error))
+                        pass
+        print("number of having note: " + str(have_note))
+        print("number of having entry: " + str(have_entry))
+        print("number of having keyword: " + str(have_keyword))
+        print(error_log)
 
+    @staticmethod
+    def import_texts(texts_path, sorted_pages, index):
+        for file in os.listdir(texts_path):
+            if not file.endswith("tar.gz"):
+                continue
+            tar = tarfile.open(os.path.join(texts_path, file), "r:gz")
+            tar.extractall(path=texts_path + "\\temp")
+            tar.close()
+
+
+# index = 'records_nkp_filtered'
+# es = Elasticsearch()
+# # es.indices.delete(index=index)
+# request_body = {
+#     "settings" : {
+#         "number_of_shards": 5,
+#         "number_of_replicas": 1,
+#         "index.mapping.total_fields.limit": 3000
+#     }
+# }
+# es.indices.create(index=index, body=request_body)
+#
 path = 'C:\\Users\\jakub\\Documents\\metadata_nkp.xml'
 di = DataImporter()
-di.import_metadata(path, index)
+# di.import_metadata(path, index)
 # di.import_part_of_data(path, index, 1088969)
 # di.count_czech_not_tagged(path)
-
+di.count_tagged_keywords(path)
+#DataImporter.import_texts('C:\\Users\\jakub\\Documents\\ziped1', 'C:\\Users\\jakub\\Documents\\sorted_pages_zip\\sorted_pages', "")
