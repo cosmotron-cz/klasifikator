@@ -111,43 +111,36 @@ class TextExtractorPre:
     trieda ktora je dekoratorom extraktoru textov
     spravi rozdelenie na vety a lematizaciu
     """
-    def __init__(self, directory, sorted_pages, preprocess=True):
+    def __init__(self, directory, sorted_pages, preprocess=True, uuids=None):
         self.directory = directory
         self.sorted_pages = sorted_pages
         self.processor = Preprocessor()
         self.preprocess = preprocess
-
-    def into_sentences(self, text):
-        result = []
-        sentences = sent_tokenize(text)
-        for sentence in sentences:
-            if self.preprocess:
-                tokens = self.processor.remove_stop_words(sentence)
-                tokens = self.processor.lemmatize(tokens)
-            else:
-                tokens = self.processor.tokenize(sentence)
-            result.append(tokens)
-        return result
+        self.uuids = uuids
 
     def __iter__(self):
-        self.extractor = iter(TextExtractor(self.directory, self.sorted_pages))
-        text = next(self.extractor)
-        self.sentences = self.into_sentences(text)
+        if self.uuids is None:
+            self.extractor = iter(TextExtractor(self.directory, self.sorted_pages))
+        else:
+            self.extractor = TextExtractor(self.directory, self.sorted_pages)
+            self.uuid_iter = iter(self.uuids)
         return self
 
     def __next__(self):
-        if len(self.sentences) == 0:
-            text = next(self.extractor)
-            if text == '':
-                return ''
-            self.sentences = self.into_sentences(text)
-            result = self.sentences[0]
-            self.sentences.pop(0)
-            return result
+        if self.uuids is None:
+            document = next(self.extractor)
         else:
-            result = self.sentences[0]
-            self.sentences.pop(0)
-            return result
+            uuid = next(self.uuid_iter)
+            document = self.extractor.get_text(uuid)
+
+        if document == "":
+            return next(self)
+        if self.preprocess:
+            document = self.processor.remove_stop_words(document)
+            document = self.processor.lemmatize(document)
+        else:
+            document = self.processor.tokenize(document)
+        return ' '.join(document)
 
 
 class TextExtractorPreTag:
