@@ -3,12 +3,12 @@ from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 import gensim
 import pickle
 from pathlib import Path
-
+from pandas import DataFrame, Series
 
 class Vectorizer():
     def __init__(self, vectorizer='tfidf', ngram=1, vocabulary=None, load_vec=None):
         if load_vec is not None:
-            with open(load_vec, "wb") as file:
+            with open(load_vec, "rb") as file:
                 self.vectorizer = pickle.load(file)
             return
         if vectorizer == 'tfidf':
@@ -19,14 +19,23 @@ class Vectorizer():
             raise Exception("Unknown vectorizer")
 
     def fit(self, data):
-        self.vectorizer.fit(data['text'])
+        if isinstance(data, DataFrame):
+            self.vectorizer.fit(data['text'])
+        else:
+            self.vectorizer.fit(data)
 
     def transform(self, data):
-        matrix = self.vectorizer.transform(data['text'])
+        if isinstance(data, DataFrame):
+            matrix = self.vectorizer.transform(data['text'])
+        else:
+            matrix = self.vectorizer.transform(data)
         return matrix
 
     def get_matrix(self, data):
-        matrix = self.vectorizer.fit_transform(data['text'])
+        if isinstance(data, DataFrame):
+            matrix = self.vectorizer.fit_transform(data['text'])
+        else:
+            matrix = self.vectorizer.fit_transform(data)
         return matrix
 
     def save(self, path):
