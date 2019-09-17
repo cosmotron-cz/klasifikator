@@ -3,6 +3,8 @@ import tarfile
 from nltk.tokenize import sent_tokenize
 from preprocessor import Preprocessor
 from gensim.models.doc2vec import TaggedDocument
+import errno
+from pathlib import Path
 
 
 class TextExtractor:
@@ -28,7 +30,7 @@ class TextExtractor:
                 self.sorted_pages[file.split('.')[0]] = os.path.join(sorted_pages, file)
         self.all_files = []
         for file in os.listdir(self.directory):
-            if file.endswith("tar.gz"):
+            if file.endswith(".tar.gz"):
                 self.all_files.append(file)
 
     def __iter__(self):
@@ -112,11 +114,16 @@ class TextExtractorPre:
     spravi rozdelenie na vety a lematizaciu
     """
     def __init__(self, directory, sorted_pages, preprocess=True, uuids=None):
-        self.directory = directory
-        self.sorted_pages = sorted_pages
+        self.directory = Path(directory)
+        self.sorted_pages = Path(sorted_pages)
         self.processor = Preprocessor()
         self.preprocess = preprocess
         self.uuids = uuids
+        try:
+            os.makedirs(self.directory / 'processed')
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
 
     def __iter__(self):
         if self.uuids is None:
@@ -127,21 +134,55 @@ class TextExtractorPre:
         return self
 
     def __next__(self):
+        current_uuid = ""
+        processed = False
         if self.uuids is None:
-            document = next(self.extractor)
+            current_uuid = self.extractor.all_files[0]
+            document = self.check_processed(current_uuid)
+            if document is None:
+                document = next(self.extractor)
+            else:
+                processed = True
         else:
-            uuid = next(self.uuid_iter)
-            document = self.extractor.get_text(uuid)
+            current_uuid = next(self.uuid_iter)
+            document = self.check_processed(current_uuid)
+            if document is None:
+                document = self.extractor.get_text(current_uuid)
+            else:
+                processed = True
 
         if document == "":
             return next(self)
-        if self.preprocess:
-            document = self.processor.remove_stop_words(document)
-            document = self.processor.lemmatize(document)
-        else:
-            document = self.processor.tokenize(document)
-        return ' '.join(document)
+        if processed is False:
+            if self.preprocess:
+                document = self.processor.remove_stop_words(document)
+                document = self.processor.lemmatize(document)
+            else:
+                document = self.processor.tokenize(document)
+            document = ' '.join(document)
+            self.save_document(document, current_uuid)
+        return document
 
+    def check_processed(self, current_uuid):
+
+        if current_uuid.endswith('.tar.gz'):
+            current_uuid = current_uuid[:-7]
+        current_uuid += '.txt'
+        file = self.directory / 'processed' / current_uuid
+        if file.is_file():
+            with open(file, 'r', encoding="utf-8") as f:
+                document = f.read()
+        else:
+            return None
+        return document
+
+    def save_document(self, document, current_uuid):
+        if current_uuid.endswith('.tar.gz'):
+            current_uuid = current_uuid[:-7]
+        current_uuid += '.txt'
+        file = self.directory / 'processed' / current_uuid
+        with open(file, 'w+', encoding="utf-8") as f:
+            f.write(document)
 
 class TextExtractorPreTag:
     def __init__(self, directory, sorted_pages, preprocess=True):
