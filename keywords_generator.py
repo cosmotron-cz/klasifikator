@@ -253,6 +253,7 @@ class KeywordsGeneratorTfidf:
                     print(uuid)
                     text = self.check_processed(uuid, results_dir)
                     if text is None:
+                        print("preprocessing")
                         text = extractor.get_text(uuid)
                         text = preprocessor.lemmatize(text)
                         text = ' '.join(text)
@@ -271,6 +272,60 @@ class KeywordsGeneratorTfidf:
         data['generated'] = keywords
 
         self.save_dataframe(data, 'test_contents', results_dir)
+
+    def count_keywords_in_text(self, data):
+        date_now = datetime.now()
+        results_dir = Path("rake")
+        preprocessor = Preprocessor()
+        pairs = self.get_pairs()
+        extractor = TextExtractor('C:/Users/jakub/Documents/all',
+                              'C:/Users/jakub/Documents/sorted_pages_zip/sorted_pages')
+
+        try:
+            os.makedirs(results_dir / "processed")
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+
+        i = 0
+        all_n = 0
+        all_keywords = 0
+        for index, row in data.iterrows():
+            # print("processing number: " + str(i))
+            values = pairs.get(row['OAI'], None)
+            if values is not None:
+                uuid = values[0]
+                # print(uuid)
+                text = self.check_processed(uuid, results_dir)
+                if text is None:
+                    # print("preprocessing")
+                    text = extractor.get_text(uuid)
+                    text = preprocessor.lemmatize(text)
+                    text = ' '.join(text)
+                    self.save_document(text, uuid, results_dir)
+                # print("end preprocessing")
+                keywords = row['keywords']
+                keywords = preprocessor.lemmatize(keywords)
+                text = text.split(' ')
+                n = 0
+                len_keywords = len(keywords)
+                for word in text:
+                    if len(keywords) == 0:
+                        break
+                    found = None
+                    for indx, key in enumerate(keywords):
+                        if word == key:
+                            n += 1
+                            found = indx
+                            break
+                    if found is not None:
+                        keywords.pop(found)
+                print("for document " + str(i) + " found " + str(n) + " out of " + str(len_keywords))
+                all_n += n
+                all_keywords += len_keywords
+            i += 1
+        print("for all documents found " + str(all_n) + " out of " + str(all_keywords))
+        print()
 
     def save_document(self, document, current_uuid, result_dir):
         if current_uuid.endswith('.tar.gz'):
@@ -420,13 +475,19 @@ class KeywordsGeneratorTfidf:
 
 index = "keyword_czech"
 kg = KeywordsGeneratorTfidf()
-# # kg.fit_from_elastic(index)
-test = pd.read_csv('rake\\test_contents.csv', index_col=0)
-kg.evaluate_keywords(test)
+test = pd.read_csv('2019_09_27_13_44\\test.csv', index_col=0)
 # test = test.iloc[:1000]
+# kg.count_keywords_in_text(test)
+# kg.rake_keywords(test, False)
+
+
+# # kg.fit_from_elastic(index)
+
+kg.evaluate_keywords(test)
+
 # vectorizer = Vectorizer(load_vec='vectorizers\\pre_contents_1000_bi.pickle')
 # kg.tfidf_keywords2(test, vectorizer)
-# kg.rake_keywords(test, True)
+
 # kg.add_contents(test, index)
 # kg.read_contents()
 # contents = test['content']
