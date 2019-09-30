@@ -133,3 +133,4 @@ venv.bak/
 /2019_*
 /rake/
 *.csv
+*.pickle
