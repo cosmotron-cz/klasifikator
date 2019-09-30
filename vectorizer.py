@@ -12,7 +12,7 @@ class Vectorizer():
                 self.vectorizer = pickle.load(file)
             return
         if vectorizer == 'tfidf':
-            self.vectorizer = TfidfVectorizer(vocabulary=vocabulary, ngram_range=(1, ngram))
+            self.vectorizer = TfidfVectorizer(vocabulary=vocabulary, ngram_range=(1, ngram), min_df=0.2)
         elif vectorizer == 'bow':
             self.vectorizer = CountVectorizer(vocabulary=vocabulary, ngram_range=(1, ngram))
         else:
