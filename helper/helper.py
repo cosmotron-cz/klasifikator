@@ -2,6 +2,8 @@ from pathlib import Path
 from datetime import datetime
 import os
 import errno
+import pickle
+import re
 
 class Helper:
     stop_words = ["a sice", "a to", "a", "aby", "aj", "ale", "ani", "aniz", "aniž", "ano", "asi", "az",
@@ -92,3 +94,72 @@ class Helper:
             if e.errno != errno.EEXIST:
                 raise
         return results_dir
+
+    @staticmethod
+    def save_dataframe(dataframe, name, path=None):
+        if path is None:
+            date_now = datetime.now()
+            results_dir = Path(date_now.strftime('%Y_%m_%d_%H_%M'))
+        elif isinstance(path, Path):
+            results_dir = path
+        elif isinstance(path, str):
+            results_dir = Path(path)
+        else:
+            raise Exception("wrong path argument")
+        try:
+            os.makedirs(results_dir)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        if not name.endswith('.csv'):
+            name += '.csv'
+        dataframe.to_csv(results_dir / name, encoding='utf-8')
+
+    @staticmethod
+    def save_model(model, path, name):
+        try:
+            os.makedirs(path)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        if not name.endswith('.pickle'):
+            name += '.pickle'
+        model_path = str(Path(path) / name)
+        with open(model_path, "wb") as file:
+            pickle.dump(model, file)
+
+    @staticmethod
+    def is_word_or_number(w):
+         match = re.search(r"\A[\W]+\Z", w)
+         if match is not None:
+             return False
+         else:
+             return True
+
+    @staticmethod
+    def filter_words(document, preprocessor):
+        pre_word = ''
+        pre_tag = None
+        result = []
+        for word in document:
+            if Helper.is_word_or_number(word):
+                tag = preprocessor.pos_tag(word)[0]
+                if tag[0] == 'N':
+                    if pre_tag == 'A':
+                        result.append(pre_word + '_' + word)
+                    else:
+                        result.append(word)
+                    pre_word = word
+                    pre_tag = tag[0]
+                elif tag[0] == 'A':
+                    pre_word = word
+                    pre_tag = tag[0]
+                else:
+                    pre_word = ''
+                    pre_tag = None
+                    continue
+            else:
+                pre_word = ''
+                pre_tag = None
+                continue
+        return result
