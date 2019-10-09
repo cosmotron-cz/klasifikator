@@ -42,6 +42,8 @@ class Preprocessor(object):
         for word in text:
             self.morpho.analyze(word, self.morpho.GUESSER, lemmas)
             result.append(lemmas[0].tag)
+        if len(result) == 0:
+            result.append('X@')
         return result
 
     def remove_stop_words(self, text):

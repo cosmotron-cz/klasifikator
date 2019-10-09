@@ -17,35 +17,53 @@ from helper.helper import Helper
 import re
 from os import listdir
 from os.path import isfile, join
+import sklearn_crfsuite
+from sklearn.model_selection import cross_validate
+from sklearn.model_selection import KFold
+import numpy as np
+import logging
 
 class CrfKeywords:
-    def generate_data_words(self, data, vectorizer, vectorizer_pre):
-        es = Elasticsearch()
-        pairs = Helper.get_pairs('C:/Users/jakub/Documents/sloucena_id')
+    def __init__(self):
         date_now = datetime.now()
-        results_dir = date_now.strftime('%Y_%m_%d_%H_%M')
-        preprocessed_dir = Path("rake")
+        logs = Path('logs')
+        logging.basicConfig(filename=logs / date_now.strftime('%Y_%m_%d_%H_%M'), level=logging.DEBUG)
+
+    def generate_data_words(self, data, vectorizer, vectorizer_pre):
+        logging.info('Starting generate_data_words')
+        es = Elasticsearch()
+        pairs = Helper.get_pairs('data/sloucena_id')
+        date_now = datetime.now()
+        # results_dir = Helper.create_results_dir()
+        preprocessed_dir = Path("data")
+        results_dir = Path('2019_10_03_13_06')
         preprocessor = Preprocessor()
-        extractor = TextExtractor('C:/Users/jakub/Documents/all',
-                                  'C:/Users/jakub/Documents/sorted_pages_zip/sorted_pages')
-        feature_names = vectorizer.vectorizer.get_feature_names()
+        extractor = TextExtractor('data/all',
+                                  'data/sorted_pages')
+        # feature_names = vectorizer.vectorizer.get_feature_names()
         feature_names_pre = vectorizer_pre.vectorizer.get_feature_names()
 
-        tagged_fn = preprocessor.pos_tag(feature_names)
-        tagged_fn = self.dict_taggs(tagged_fn, feature_names)
+        # tagged_fn = preprocessor.pos_tag(feature_names)
+        # tagged_fn = self.dict_taggs(tagged_fn, feature_names)
         tagged_fn_pre = preprocessor.pos_tag(feature_names_pre)
         tagged_fn_pre = self.dict_taggs(tagged_fn_pre, feature_names_pre)
-        words = []
         i = 0
+        i_dataframe = 0
         for indxrow, row in data.iterrows():
-            # print("processing number: " + str(i))
+            words = []
+            print("processing number: " + str(i))
+            logging.info("processing number: " + str(i))
+            if i < 212:
+                i += 1
+                continue
             values = pairs.get(row['OAI'], None)
             if values is not None:
                 uuid = values[0]
                 # print(uuid)
-                text = extractor.get_text(uuid)
+                # text = extractor.get_text(uuid)
                 text_pre = Helper.check_processed(uuid, preprocessed_dir)
                 if text_pre is None:
+                    raise Exception('Tu nemas byt')
                     print("preprocessing")
                     text_pre = preprocessor.lemmatize(text)
                     # text_pre = ' '.join(text_pre)
@@ -53,13 +71,14 @@ class CrfKeywords:
                     print("end preprocessing")
                 else:
                     text_pre = text_pre.split(' ')
-                text = preprocessor.tokenize(text)
-                if len(text) != len(text_pre):
-                    print("processing number: " + str(i))
-                    print(len(text))
-                    print(len(text_pre))
-                    print("not equal")
-                    raise Exception('texts are not equal')
+                # text = preprocessor.tokenize(text)
+                # if len(text) != len(text_pre):
+                #     print("processing number: " + str(i))
+                #     print(len(text))
+                #     print(len(text_pre))
+                #     print("not equal")
+                #     logging.warning(str(len(text)) + "is not equal" + str(len(text_pre)))
+                #     raise Exception('texts are not equal')
 
                 title = preprocessor.tokenize(row['title'])
                 keywords = preprocessor.tokenize(row['keywords'])
@@ -89,7 +108,7 @@ class CrfKeywords:
 
                 max_lenght = 0
                 max_lenght_pre = 0
-                text2 = []
+                # text2 = []
                 text_pre2 = []
                 for indx, w in enumerate(text_pre):
                     match = re.search(r"\A[\W]+\Z", w)
@@ -97,44 +116,57 @@ class CrfKeywords:
                         continue
                     if len(w) > max_lenght_pre:
                         max_lenght_pre = len(w)
-                    if len(text[indx]) > max_lenght:
-                        max_lenght = len(text[indx])
+                    # if len(text[indx]) > max_lenght:
+                    #     max_lenght = len(text[indx])
                     text_pre2.append(w)
-                    text2.append(text[indx])
+                    # text2.append(text[indx])
 
-                text = text2
+                # text = text2
                 text_pre = text_pre2
-                tags = self.tag_text(text, keywords)
+                # tags = self.tag_text(text, keywords)
                 tags_pre = self.tag_text(text_pre, keywords_pre)
-                vector = vectorizer.transform([' '.join(text)])
-                tfidf_dict = self.dict_from_vector(vector.toarray(), feature_names)
+                # vector = vectorizer.transform([' '.join(text)])
+                # tfidf_dict = self.dict_from_vector(vector.toarray(), feature_names)
                 vector_pre = vectorizer_pre.transform([' '.join(text_pre)])
                 tfidf_dict_pre = self.dict_from_vector(vector_pre.toarray(), feature_names_pre)
 
                 for indx, w in enumerate(text_pre):
-                    tfidf = tfidf_dict.get(text[indx], None)
-                    if tfidf is None:
-                        tfidf = 0.0
-                    pos = tagged_fn.get(text[indx], None)
-                    if pos is None:
-                        pos = 'X@'
-                    if tfidf is None:
-                        tfidf = 0.0
-                    new_word = {'word': text[indx], 'uuid': uuid, 'OAI': row['OAI'],
-                                'length': len(w), 'tag': tags[indx], 'tfidf': tfidf, 'pos': pos}
-                    if w in title:
-                        new_word['in_title'] = True
-                    else:
-                        new_word['in_title'] = False
-                    if indx > 0:
-                        new_word['before'] = text[indx-1]
-                    else:
-                        new_word['before'] = ''
-                    if indx <= len(text) - 2:
-                        new_word['after'] = text[indx+1]
-                    else:
-                        new_word['after'] = ''
+                    new_word_pre = self.new_word(indx, text_pre, tfidf_dict_pre, tagged_fn_pre, uuid, row['OAI'],
+                                                 tags_pre[indx], title)
+                    df = DataFrame(new_word_pre, index=[i_dataframe])
+                    words.append(df)
+                    i_dataframe += 1
+                words_data = pd.concat(words)
+                if i == 0:
+                    words_data.to_csv(results_dir / 'words_pre.csv', encoding='utf-8')
+                else:
+                    with open(results_dir / 'words_pre.csv', 'a', encoding='utf-8') as f:
+                        words_data.to_csv(f, header=False, encoding='utf-8')
             i += 1
+
+    def new_word(self, indx, text, tfidf_dict, tagged_fn, uuid, oai, tag, title):
+        tfidf = tfidf_dict.get(text[indx], None)
+        if tfidf is None:
+            tfidf = 0.0
+        pos = tagged_fn.get(text[indx], None)
+        if pos is None:
+            pos = 'X@'
+        new_word = {'word': text[indx], 'uuid': uuid, 'OAI': oai,
+                    'length': len(text[indx]), 'tag': tag, 'tfidf': tfidf, 'pos': pos}
+        if text[indx] in title:
+            new_word['in_title'] = True
+        else:
+            new_word['in_title'] = False
+        if indx > 0:
+            new_word['before'] = text[indx - 1]
+        else:
+            new_word['before'] = ''
+        if indx <= len(text) - 2:
+            new_word['after'] = text[indx + 1]
+        else:
+            new_word['after'] = ''
+
+        return new_word
 
     def tag_text(self, text, keywords):
         tags = []
@@ -179,8 +211,110 @@ class CrfKeywords:
             tagged_dict[feature] = tags[i]
         return tagged_dict
 
+    def transform_data(self, data):
+        X = []
+        y = []
+        uuid = ''
+        document = []
+        document_y = []
+        i = 1
+        for indx, row in data.iterrows():
+            #     ,word,uuid,OAI,length,tag,tfidf,pos,in_title,before,after
+            if uuid == '':
+                uuid = row['uuid']
+            if uuid != row['uuid']:
+                X.append(document)
+                y.append(document_y)
+                document = []
+                document_y = []
+                uuid = row['uuid']
+            dict = {'word': row['word'], 'length': row['length'], 'tfidf': row['tfidf'],
+                    'pos': row['pos'], 'in_title': row['in_title'], 'before': row['before'], 'after': row['after']}
+            document.append(dict)
+            document_y.append(row['tag'])
+            i += 1
+
+        X.append(document)
+        y.append(document_y)
+        return X, y
+
+    def transform_data_from_csv(self, path):
+        logging.info('Start transform data')
+        chunks = pd.read_csv(path, index_col=0, chunksize=10000)
+        data = []
+        X = []
+        y = []
+        uuid = ''
+        document = []
+        document_y = []
+        i = 0
+        for chunk in chunks:
+            if i >= 400:
+                break
+            logging.info('processing document number: ' + str(i))
+            for indx, row in chunk.iterrows():
+                if i >= 400:
+                    break
+                row = row.replace(np.nan, '', regex=True)
+                if uuid == '':
+                    uuid = row['uuid']
+                if uuid != row['uuid']:
+                    X.append(document)
+                    y.append(document_y)
+                    i += 1
+                    document = []
+                    document_y = []
+                    uuid = row['uuid']
+                if row['before'] == np.nan:
+                    before = ''
+                else:
+                    before = row['before']
+                if row['after'] == np.nan:
+                    after = ''
+                else:
+                    after = row['after']
+                word = ['w=' + row['word'],
+                        'l=' + str(row['length']),
+                        'tf=' + str(row['tfidf']),
+                        'pos=' + row['pos'],
+                        'in=' + str(row['in_title']),
+                        'be=' + before,
+                        'af=' + after]
+                document.append(word)
+                document_y.append(row['tag'])
+        X.append(document)
+        y.append(document_y)
+        logging.info('end transform data')
+        return X, y
+
+    def cross_validation_crf(self, data=None, X=None, y=None):
+        logging.info('start cross validation')
+        if data is None and X is None and y is None:
+            raise Exception('No data for training')
+        if X is None or y is None:
+            X, y = self.transform_data(data)
+        crf = sklearn_crfsuite.CRF(
+            algorithm='lbfgs',
+            c1=0.1,
+            c2=0.1,
+            max_iterations=100,
+            all_possible_transitions=True
+        )
+        kf = KFold(n_splits=10)
+        try:
+            cv_results = cross_validate(crf, X, y, cv=kf, n_jobs=-1, return_estimator=True)
+        except Exception:
+            logging.exception("Exeption during training")
+            raise
+        results_dir = Helper.create_results_dir()
+        for i, estimator in enumerate(cv_results['estimator']):
+            Helper.save_model(estimator, results_dir, 'crf' + str(i))
+        print(cv_results)
+        logging.info(str(cv_results))
+
+
     def create_vectorizer_pre(self):
-        mypath = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\rake\\processed"
+        mypath = "rake/processed"
         onlyfiles = [join(mypath, f) for f in listdir(mypath) if isfile(join(mypath, f)) and f.endswith('.txt')]
         vectorizer = Vectorizer(input='filename')
         vectorizer.fit(onlyfiles)
@@ -188,10 +322,10 @@ class CrfKeywords:
         vectorizer.save(path)
 
     def create_vectorizer(self, data):
-        te = TextExtractor('C:/Users/jakub/Documents/all',
-                           'C:/Users/jakub/Documents/sorted_pages_zip/sorted_pages')
+        te = TextExtractor('data/all',
+                           'data/sorted_pages')
         texts = []
-        pairs = Helper.get_pairs('C:/Users/jakub/Documents/sloucena_id')
+        pairs = Helper.get_pairs('data/sloucena_id')
         for indx, row in data.iterrows():
             values = pairs.get(row['OAI'])
             if values is not None:
@@ -202,13 +336,34 @@ class CrfKeywords:
         path = Helper.create_results_dir()
         vectorizer.save(path)
 
+    def data_generator_wrapper(self):
+        vectorizer_pre = Vectorizer(load_vec='2019_10_01_15_02/unigram_tfidf_with_stop_words_1000.pickle')
+        vectorizer_pre.vectorizer.input = 'content'
+        # vectorizer = Vectorizer(load_vec='2019_10_01_15_23/unigram_tfidf_nopre_1000.pickle')
+        data = pd.read_csv('train2.csv', index_col=0)
+        data = data.iloc[:1000]
+        self.generate_data_words(data, None, vectorizer_pre)
 
-vectorizer_pre = Vectorizer(load_vec='2019_10_01_15_02\\unigram_tfidf_with_stop_words_1000.pickle')
-vectorizer_pre.vectorizer.input = 'content'
-vectorizer = Vectorizer(load_vec='2019_10_01_15_23\\unigram_tfidf_nopre_1000.pickle')
+    def training_wrapper(self):
+        try:
+            print('skipped')
+            # self.data_generator_wrapper()
+        except Exception as e:
+            logging.exception("Exeption during data generation")
+            raise
+        # data = pd.read_csv('2019_10_03_13_06/words_pre.csv', index_col=0)
+        X, y = self.transform_data_from_csv('2019_10_03_13_06/words_pre.csv')
+        try:
+            self.cross_validation_crf(None, X, y)
+        except Exception as e:
+            logging.exception("Exeption during training")
+            raise
+
+
 crf = CrfKeywords()
-data = pd.read_csv('train2.csv', index_col=0)
-data = data.iloc[:1000]
-crf.generate_data_words(data, vectorizer, vectorizer_pre)
+crf.training_wrapper()
+# data = pd.read_csv('2019_10_03_12_33/words_pre.csv', index_col=0)
+# data = data.iloc[:9999]
+# crf.cross_validation_crf(data)
 
 

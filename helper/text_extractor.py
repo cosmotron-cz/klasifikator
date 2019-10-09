@@ -5,6 +5,7 @@ from preprocessor import Preprocessor
 from gensim.models.doc2vec import TaggedDocument
 import errno
 from pathlib import Path
+from helper.helper import Helper
 
 
 class TextExtractor:
@@ -19,9 +20,9 @@ class TextExtractor:
         :param sorted_pages: adresar s .txt subormi ktore obsahuju poradie stran pre texty
         """
         if not os.path.isdir(directory):
-            raise Exception("Not a directory: " + directory)
+            raise Exception("Not a directory: " + str(directory))
         if not os.path.isdir(sorted_pages):
-            raise Exception("Not a directory: " + sorted_pages)
+            raise Exception("Not a directory: " + str(sorted_pages))
         self.directory = directory
         self.sorted_pages_path = sorted_pages
         self.sorted_pages = {}
@@ -113,12 +114,13 @@ class TextExtractorPre:
     trieda ktora je dekoratorom extraktoru textov
     spravi rozdelenie na vety a lematizaciu
     """
-    def __init__(self, directory, sorted_pages, preprocess=True, uuids=None):
+    def __init__(self, directory, sorted_pages, preprocess=True, uuids=None, filter_nouns=False):
         self.directory = Path(directory)
         self.sorted_pages = Path(sorted_pages)
         self.processor = Preprocessor()
         self.preprocess = preprocess
         self.uuids = uuids
+        self.filter_nouns = filter_nouns
         try:
             os.makedirs(self.directory / 'processed')
         except OSError as e:
@@ -153,13 +155,19 @@ class TextExtractorPre:
                     document = self.extractor.get_text(current_uuid)
                 else:
                     processed = True
+                if self.filter_nouns:
+                    document = document.split(' ')
+                    document = Helper.filter_words(document, self.processor)
+                    document = ' '.join(document)
 
             if document == "":
-                return next(self)
+                return ""
             if processed is False:
                 if self.preprocess:
                     document = self.processor.remove_stop_words(document)
                     document = self.processor.lemmatize(document)
+                    if self.filter_nouns:
+                        document = Helper.filter_words(document, self.processor)
                 else:
                     document = self.processor.tokenize(document)
                 document = ' '.join(document)

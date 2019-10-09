@@ -14,12 +14,13 @@ from multi_rake import Rake
 from pathlib import Path
 from lxml import etree
 from io import StringIO
+from helper.helper import Helper
 
 class KeywordsGeneratorTfidf:
     def fit_from_elastic(self, index):
         pairs = self.get_pairs()
         all_files = []
-        directory = 'C:/Users/jakub/Documents/all'
+        directory = 'data/all'
         for file in os.listdir(directory):
             if file.endswith(".tar.gz"):
                 file = file[:-7]
@@ -84,9 +85,10 @@ class KeywordsGeneratorTfidf:
                 uuids = uuids + values
 
         te = TextExtractorPre(directory,
-                              'C:/Users/jakub/Documents/sorted_pages_zip/sorted_pages', uuids=uuids)
+                              'data/sorted_pages', uuids=uuids, filter_nouns=False)
 
-        vectorizer = Vectorizer(vectorizer='tfidf', ngram=1)
+        vocabulary = self.preprocess_kw()
+        vectorizer = Vectorizer(vectorizer='tfidf', ngram=4, vocabulary=vocabulary)
         vectorizer.fit(te)
         try:
             os.makedirs(results_dir)
@@ -101,9 +103,9 @@ class KeywordsGeneratorTfidf:
 
         pairs = self.get_pairs()
         preprocessor = Preprocessor()
-        directory = Path('C:/Users/jakub/Documents/all')
+        directory = Path('data/all')
         extractor = TextExtractor(directory,
-                                  'C:/Users/jakub/Documents/sorted_pages_zip/sorted_pages')
+                                  'data/sorted_pages')
 
         try:
             os.makedirs(results_dir)
@@ -125,9 +127,15 @@ class KeywordsGeneratorTfidf:
                     text = preprocessor.lemmatize(text)
                     text = ' '.join(text)
                     self.save_document(text, uuid, directory)
+                # text = text.split(' ')
+                # text = Helper.filter_words(text, preprocessor)
+                # text = ' '.join(text)
                 print("end preprocessing")
                 kw = self.extract_keywords(vectorizer, text)
-                result = ' '.join(kw)
+                kw2 = []
+                for word in kw:
+                    kw2.extend(word.split('_'))
+                result = ' '.join(kw2)
                 keywords.append(result)
             else:
                 keywords.append("")
@@ -162,7 +170,7 @@ class KeywordsGeneratorTfidf:
         feature_names = tfidf_vectorizer.vectorizer.get_feature_names()
         vector = tfidf_vectorizer.transform([text])
         sorted_items = self.sort_coo(vector.tocoo())
-        keywords = self.extract_topn_from_vector(feature_names, sorted_items, 10)
+        keywords = self.extract_topn_from_vector(feature_names, sorted_items, 6)
         return keywords
 
     def sort_coo(self, coo_matrix):
@@ -196,26 +204,10 @@ class KeywordsGeneratorTfidf:
                 raise
         if not name.endswith('.csv'):
             name += '.csv'
-        dataframe.to_csv(results_dir / name)
+        dataframe.to_csv(results_dir / name, encoding='utf-8')
 
     def get_pairs(self):
-        path = 'C:/Users/jakub/Documents/sloucena_id'
-
-        pairs = {}
-        with open(path, 'r') as file:
-            for line in file:
-                line = line.rstrip()
-                parts = line.split(',')
-                keys = []
-                values = []
-                for part in parts:
-                    if part.startswith('uuid'):
-                        values.append(part.replace(':', '_'))
-                    else:
-                        keys.append(part)
-                for key in keys:
-                    pairs[key] = values
-        return pairs
+        return Helper.get_pairs('data/sloucena_id')
 
     def rake_keywords(self, data, cont=False):
         date_now = datetime.now()
@@ -469,24 +461,92 @@ class KeywordsGeneratorTfidf:
         data = data.iloc[indexes, :]
         self.save_dataframe(data, 'train_contents')
 
+    def create_keywords_dict(self, index):
+        es = Elasticsearch()
+        s = Search(using=es, index=index)
 
+        s.execute()
+        keywords = {}
+        for hit in s.scan():
+            hit_dict = hit.to_dict()
+            try:
+                field_650 = hit_dict['650']
+                if isinstance(field_650, list):
+                    for field in field_650:
+                        if field.get('a', "") == "":
+                            continue
+                        if field.get('2', '') != 'czenas':
+                            continue
+                        keywords[field['a']] = True
+                else:
+                    if field_650.get('2', '') != 'czenas':
+                        continue
+                    if field_650.get('a', "") != "":
+                        keywords[field_650['a']] = True
+            except KeyError:
+                continue
 
+        result = []
+        for key in keywords:
+            result.append(key)
+        result.sort()
+        for key in result:
+            print(key)
+
+    def read_keywords(self):
+        file = 'keywords.txt'
+
+        keywords = []
+        with open(file, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line[len(line)-1] == '\n':
+                    keywords.append(line[:-1])
+                else:
+                    keywords.append(line)
+        return keywords
+
+    def preprocess_kw(self, keywords=None):
+        if keywords is None:
+            keywords = self.read_keywords()
+        preprocessor = Preprocessor()
+        result = []
+        for key in keywords:
+            parenthesis = key.find('(')
+            if parenthesis != -1:
+                parts = key.split('(')
+                key = parts[0]
+                if key[len(key)-1] == ' ':
+                    key = key[:-1]
+            key = key.split(' ')
+            if len(key) > 4:
+                continue
+            key = preprocessor.lemmatize(key)
+            result.append(' '.join(key))
+        result = list(dict.fromkeys(result))
+        return result
 
 
 index = "keyword_czech"
 kg = KeywordsGeneratorTfidf()
-test = pd.read_csv('2019_09_27_13_44\\test.csv', index_col=0)
+# kg.create_keywords_dict(index)
+# kg.read_keywords()
+# kg.preprocess_kw()
+test = pd.read_csv('2019_10_09_11_05/test.csv', index_col=0)
+# test = test.iloc[:1000]
+# rake_test = pd.read_csv('rake\\test.csv', index_col=0)
+# test['rake_keywords'] = rake_test['generated']
+# kg.save_dataframe(test, 'results', None)
 # test = test.iloc[:1000]
 # kg.count_keywords_in_text(test)
 # kg.rake_keywords(test, False)
 
 
-# # kg.fit_from_elastic(index)
+# kg.fit_from_elastic(index)
 
 kg.evaluate_keywords(test)
 
-# vectorizer = Vectorizer(load_vec='vectorizers\\pre_contents_1000_bi.pickle')
-# kg.tfidf_keywords2(test, vectorizer)
+# vectorizer = Vectorizer(load_vec='2019_10_08_14_34/tfidf_vocabkw_1000.pickle')
+# kg.tfidf_keywords(test, vectorizer)
 
 # kg.add_contents(test, index)
 # kg.read_contents()

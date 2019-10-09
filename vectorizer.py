@@ -6,15 +6,16 @@ from pathlib import Path
 from pandas import DataFrame, Series
 
 class Vectorizer():
-    def __init__(self, vectorizer='tfidf', ngram=1, vocabulary=None, load_vec=None):
+    def __init__(self, vectorizer='tfidf', ngram=1, vocabulary=None, load_vec=None, input='content'):
         if load_vec is not None:
             with open(load_vec, "rb") as file:
                 self.vectorizer = pickle.load(file)
             return
         if vectorizer == 'tfidf':
-            self.vectorizer = TfidfVectorizer(vocabulary=vocabulary, ngram_range=(1, ngram), min_df=0.2)
+            self.vectorizer = TfidfVectorizer(vocabulary=vocabulary, ngram_range=(1, ngram), input=input,
+                                              token_pattern=r"(?u)\S\S+")
         elif vectorizer == 'bow':
-            self.vectorizer = CountVectorizer(vocabulary=vocabulary, ngram_range=(1, ngram))
+            self.vectorizer = CountVectorizer(vocabulary=vocabulary, ngram_range=(1, ngram), input=input)
         else:
             raise Exception("Unknown vectorizer")
 
