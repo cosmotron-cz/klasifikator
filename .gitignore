@@ -132,5 +132,7 @@ venv.bak/
 /processed data/
 /2019_*
 /rake/
+/data/
 *.csv
 *.pickle
+/logs
