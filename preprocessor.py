@@ -1,6 +1,7 @@
 from ufal.morphodita import *
 from pathlib import Path
 from helper.helper import Helper
+from elasticsearch import Elasticsearch
 
 
 class Preprocessor(object):
@@ -68,6 +69,24 @@ class Preprocessor(object):
                 tokens.append(word.lower())
 
         return tokens
+
+    @staticmethod
+    def preprocess_text_elastic(text, index_to, analyzer):
+        es = Elasticsearch()
+        all_words = text.split()
+        result = ""
+        for n in range(0, len(all_words), 8000):
+            body = {
+              "analyzer": analyzer,
+              "text": ' '.join(all_words[n: n+8000])
+            }
+
+            response = es.indices.analyze(index=index_to, body=body)
+            if len(response['tokens']) == 0:
+                break
+            for token in response['tokens']:
+                result += " " + token['token']
+        return result
 
 
 
