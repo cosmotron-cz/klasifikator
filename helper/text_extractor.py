@@ -62,6 +62,7 @@ class TextExtractor:
 
         gz.close()
         self.files.pop(0)
+        text = text.replace('\n', ' ')
         return text
 
     def get_sorted_pages(self, path):
@@ -106,6 +107,7 @@ class TextExtractor:
             text = text + page
 
         gz.close()
+        text = text.replace('\n', ' ')
         return text
 
 
