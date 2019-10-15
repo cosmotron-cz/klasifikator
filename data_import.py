@@ -167,12 +167,61 @@ class DataImporter:
                             pass
         print(error_log)
 
+    @staticmethod
+    def get_all_keywords(path):
+
+        number = 0
+        error_log = []
+        keywords = []
+        for event, elem in etree.iterparse(path, events=('end', 'start-ns')):
+            if event == 'end':
+                if '}' in elem.tag:
+                    elem.tag = elem.tag.split('}', 1)[1]  # odstranenie namespace
+                if elem.tag == "record":
+                    number += 1
+                    result = None
+                    print("processing record number " + str(number))
+                    try:
+                        xmlstr = etree.tostring(elem, encoding='unicode', method='xml')
+                        elem.clear()
+                        result = xmltodict.parse(xmlstr)
+                        result = result['record']  # odstranenie record tagu
+                        DataImporter.move_tag_names(result)
+                        if result.get('650', None) is None:
+                            continue
+                        if not DataImporter.is_in_language_dict(result, 'cze'):
+                            continue
+                    except Exception as error:
+                        print("exception during proccesing record number: " + str(number))
+                        error_log.append("exception during proccesing record number: " + str(number))
+                        print(error)
+                        error_log.append(error)
+                        result = None
+                        pass
+                    if result is not None:
+                        field_650 = result.get('650', None)
+                        if isinstance(field_650, (AttrDict, dict)):
+                            field_650 = [field_650]
+                        for field in field_650:
+                            if field.get('2', '') == 'czenas':
+                                try:
+                                    if field['a'] not in keywords:
+                                        keywords.append(field['a'])
+                                except KeyError as ke:
+                                    # print(ke)
+                                    continue
+                            else:
+                                continue
+        print(keywords)
+        print(error_log)
+
     def import_fulltext(self, index, to_index):
         pairs = Helper.get_pairs('data/sloucena_id')
         te = TextExtractor('data/all', 'data/sorted_pages')
         client = Elasticsearch()
         s = Search(using=client, index=index)
         s.execute()
+        i = 0
         for hit in s.scan():
             hit = hit.to_dict()
             try:
@@ -193,18 +242,21 @@ class DataImporter:
                 oai = hit['OAI']['a']
                 field_245 = hit['245']
             except KeyError as ke:
-                print(ke)
+                # print(ke)
                 continue
             field_020 = hit.get('020', "")
             if field_020 != "":
-                field_020 = field_020.get('a', '')
+                if isinstance(field_020, list):
+                    field_020 = field_020[0].get('a', '')
+                else:
+                    field_020 = field_020.get('a', '')
             konspekts = []
             for field in field_072:
                 if field.get('2', "") == 'Konspekt':
                     try:
                         konspekts.append({'category': int(field['9']), 'group': field['a']})
                     except KeyError as ke:
-                        print(ke)
+                        # print(ke)
                         continue
                 else:
                     continue
@@ -217,7 +269,7 @@ class DataImporter:
                         if field['a'] not in keywords:
                             keywords.append(field['a'])
                     except KeyError as ke:
-                        print(ke)
+                        # print(ke)
                         continue
                 else:
                     continue
@@ -228,7 +280,7 @@ class DataImporter:
                 try:
                     mdts.append(field['a'])
                 except KeyError as ke:
-                    print(ke)
+                    # print(ke)
                     continue
             uuids= pairs.get(oai, None)
             if uuids is None:
@@ -247,7 +299,11 @@ class DataImporter:
                         'text_pre': "", 'tags_pre': [], 'tags_elastic': [], 'keywords': keywords,
                         'konpsket': konspekts, 'mdt': mdts,
                         'title': field_245.get('a', "") + " " + field_245.get('b', "")}
+            print('saving number:' + str(i))
             client.index(index=to_index, body=new_dict)
+            # client.indices.refresh(index=index_to)
+            i += 1
+            # break
 
     @staticmethod
     def is_in_language_dict(record, language):
@@ -365,8 +421,8 @@ class DataImporter:
 
 index = 'keyword_czech'
 index_to = 'fulltext_mzk'
-es = Elasticsearch()
-es.indices.delete(index=index_to)
+# es = Elasticsearch()
+# es.indices.delete(index=index_to)
 mappings = {
     "mappings": {
         "properties": {
@@ -376,20 +432,23 @@ mappings = {
             "text": {
                 "type": "text",
                 "analyzer": "fulltext_analyzer",
-                "term_vector": "with_positions_offsets_payloads",
+                "term_vector": "with_positions_offsets",
                 "store": True,
+                "index_options": "offsets"
             },
             "czech": {
                 "type": "text",
                 "analyzer": "fulltext_analyzer",
-                "term_vector": "with_positions_offsets_payloads",
-                "store": True
+                "term_vector": "with_positions_offsets",
+                "store": True,
+                "index_options": "offsets"
             },
             "text_pre": {
                 "type": "text",
-                "term_vector": "with_positions_offsets_payloads",
+                "term_vector": "with_positions_offsets",
                 "store": True,
-                "analyzer": "fulltext_analyzer"
+                "analyzer": "fulltext_analyzer",
+                "index_options": "offsets"
             },
             "tags_pre": {
                 "type": "text"
@@ -430,7 +489,8 @@ mappings = {
     "settings": {
         "index": {
             "number_of_shards": 1,
-            "number_of_replicas": 0
+            "number_of_replicas": 0,
+            "index.highlight.max_analyzed_offset": 100000000
         },
         "index.analyze.max_token_count": 20000,
         "analysis": {
@@ -444,8 +504,7 @@ mappings = {
                         "czech_hunspell",
                         "lowercase",
                         "czech_stop",
-                        "unique_on_same_position",
-                        "type_as_payload"
+                        "unique_on_same_position"
                     ]
                 }
             },
@@ -453,8 +512,7 @@ mappings = {
                 "type": "custom",
                 "tokenizer": "standard",
                 "filter": [
-                    "lowercase",
-                    "type_as_payload"
+                    "lowercase"
                 ]
             }
         },
@@ -481,7 +539,7 @@ mappings = {
         }
     }
 }
-response = es.index(index=index_to, body=mappings)
+# response = es.index(index=index_to, body=mappings)
 
 # print(response)
 body2 = {
@@ -494,9 +552,10 @@ body2 = {
 }
 # response = es.termvectors(index_to, id='XA44ym0BMO8lDpHzO3Y8', body=body2)
 # print(response)
-# path = 'C:\\Users\\jakub\\Documents\\metadata_nkp.xml'
+path = 'C:\\Users\\jakub\\Documents\\metadata_mzk.xml'
 di = DataImporter()
-di.import_fulltext(index, index_to)
+di.get_all_keywords(path)
+# di.import_fulltext(index, index_to)
 # di.import_metadata(path, index)
 # di.import_part_of_data(path, index, 1088969)
 # di.count_czech_not_tagged(path)
