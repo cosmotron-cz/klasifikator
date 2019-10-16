@@ -6,7 +6,6 @@ from datetime import datetime
 import os
 import errno
 from preprocessor import Preprocessor
-from vectorizer import Vectorizer, D2VVectorizer
 from helper.text_extractor import TextExtractorPreTag
 from sklearn.model_selection import train_test_split
 from imblearn.under_sampling import RandomUnderSampler
@@ -20,12 +19,13 @@ from sklearn.model_selection import StratifiedKFold
 import numpy as np
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report
-import xgboost as xgb
+import random
+from helper.helper import Helper
 
 class Classificator:
     def __init__(self, index, model):
         date_now = datetime.now()
-        self.results_dir = date_now.strftime('%Y_%m_%d_%H_%M')
+        self.results_dir = Path(date_now.strftime('%Y_%m_%d_%H_%M'))
         self.model = model
         self.index = index
         self.elastic = Elasticsearch()
@@ -40,6 +40,7 @@ class Classificator:
         keywords_rows = []
         dictionary = self.prepare_dictionary(dictionary)
         for hit in s.scan():
+            id_elastic = hit.meta.id
             hit = hit.to_dict()
             body = {
                 "fields": [field],
@@ -47,16 +48,24 @@ class Classificator:
                 "term_statistics": True,
                 "field_statistics": True
             }
-            response = self.elastic.termvectors(self.index, id='XA44ym0BMO8lDpHzO3Y8', body=body)
+            try:
+                response = self.elastic.termvectors(self.index, id=id_elastic, body=body)
+            except KeyError:
+                continue
             doc_count = response['term_vectors'][field]['field_statistics']['doc_count']
-            term_vectors = response['term_vectors']['terms']
+            term_vectors = response['term_vectors'][field]['terms']
+            non_keywords, sum = self.non_keywords_and_terms_sum(term_vectors, hit['keywords'], 20)
             if process_documents:
-                doc_row = self.document_row(hit, term_vectors, dictionary, doc_count)
-                documents.append(doc_row)
+                doc_row = self.document_row(hit, term_vectors, dictionary, doc_count, sum)
+                documents.append(doc_row) # TODO opravit vytvaranie dataframu - teraz sa vytvori pre kazdy z listu tfidf_vector
             if process_keywords:
-                kw_rows = self.keyword_rows(hit, term_vectors, doc_count)
+                kw_rows = self.keyword_rows(hit, term_vectors, non_keywords, doc_count, sum)
                 keywords_rows.extend(kw_rows)
-            # TODO pridat ukladanie dataframu a tfidf matice pre doc_rows
+
+        data_docs = pd.concat(documents)
+        Helper.save_dataframe(data_docs, 'documents', self.results_dir)
+        data_keywords = pd.concat(keywords_rows)
+        Helper.save_dataframe(data_keywords, 'keywords', self.results_dir)
 
     def prepare_dictionary(self, dictionary):
         if isinstance(dictionary, str):
@@ -71,15 +80,10 @@ class Classificator:
         elif not isinstance(dictionary, list):
             raise Exception('Wrong type for dict: ' + str(dictionary))
 
-        res = self.elastic.indices.analyze(index=self.index,
-                                           body={"analyzer": "czech", "text": ' '.join(dictionary)})
-        tokens = []
-        for token in res['tokens']:
-            if token['token'] not in tokens:
-                tokens.append(token['token'])
-        return tokens
+        res = self.preprocessor.preprocess_text_elastic(' '.join(dictionary), self.index, 'czech')
+        return res.split(' ')
 
-    def document_row(self, hit, term_vectors, dictionary, doc_count):
+    def document_row(self, hit, term_vectors, dictionary, doc_count, sum):
         # TODO zjednotit dictionary - ak sa bude spustat viac krat,
         #  v jednom behu to nie je problem kedze dictionary bude rovnaky
         id_mzk = hit['id_mzk']
@@ -97,47 +101,87 @@ class Classificator:
             if term is None:
                 tfidf_vector.append(0.0)
             else:
-                tfidf = self.tfidf(term['term_freq'], term['doc_freq'], doc_count)
+                tfidf = self.tfidf(term['term_freq'], term['doc_freq'], doc_count, sum)
                 tfidf_vector.append(tfidf)
         row = {"id_mzk": id_mzk, "category": category, "group": group, "tfidf": tfidf_vector}
-        return row
+        return DataFrame(row)
 
-    def tfidf(self, term_freq, doc_freq,  doc_count):
-        # TODO skusit zistik ako efektivne vypocitat dlzku dokumentu
+    def tfidf(self, term_freq, doc_freq,  doc_count, sum):
         inverse_doc_freq = np.log(doc_count/doc_freq)
-        return term_freq * inverse_doc_freq
+        return term_freq / sum * inverse_doc_freq
 
-    def keyword_rows(self, hit, term_vectors, doc_count):
+    def keyword_rows(self, hit, term_vectors, non_keywords, doc_count, sum):
         id_mzk = hit['id_mzk']
-        res = self.elastic.indices.analyze(index=self.index,
-                                           body={"analyzer": "czech", "text": ' '.join(hit['keywords'])})
-        keyowrds = []
-        for word in res['tokens']:
-            if word['token'] not in keyowrds:
-                keyowrds.append(word['token'])
+        keywords = self.preprocessor.preprocess_text_elastic(' '.join(hit['keywords']), self.index, 'czech')
+        keywords = keywords.split(' ')
 
-        res = self.elastic.indices.analyze(index=self.index,
-                                           body={"analyzer": "czech", "text": ' '.join(hit['title'])})
-        title = []
-        for word in res['tokens']:
-            if word['token'] not in title:
-                title.append(word['token'])
+        title = self.preprocessor.preprocess_text_elastic(hit['title'], self.index, 'czech')
+        title = title.split(' ')
 
-        for word in keyowrds:
+        result = []
+        for word in keywords:
             term = term_vectors.get(word, None)
             if term is None:
                 continue
             else:
-                tfidf = self.tfidf(term['term_freq'], term['doc_freq'], doc_count)
+                tfidf = self.tfidf(term['term_freq'], term['doc_freq'], doc_count, sum)
                 first_occurrence = term['tokens'][0]['position']
-            tag = self.preprocessor.pos_tag(word)[0] # TODO skontrolovat
+            tag = self.preprocessor.pos_tag(word)[0][0] # TODO skontrolovat ci je spravne na pravo dava A
             if word in title:
                 in_title = True
             else:
                 in_title = False
 
-            new_word = {"id_mzk": id_mzk, "word": word, "is_keyword": True, "tfidf": tfidf, "tag": tag,
+            new_word = {"id_mzk": id_mzk, "word": word, "is_keyword": 1, "tfidf": tfidf, "tag": tag,
                         "first_occurrence": first_occurrence, "in_title": in_title}
+            df = DataFrame(new_word, index=[1])
+            result.append(df)
+
+        for word in non_keywords:
+            term = term_vectors.get(word, None)
+            if term is None:
+                continue
+            else:
+                tfidf = self.tfidf(term['term_freq'], term['doc_freq'], doc_count, sum)
+                first_occurrence = term['tokens'][0]['position']
+            tag = self.preprocessor.pos_tag(word)[0][0]
+            if word in title:
+                in_title = True
+            else:
+                in_title = False
+
+            new_word = {"id_mzk": id_mzk, "word": word, "is_keyword": 0, "tfidf": tfidf, "tag": tag,
+                        "first_occurrence": first_occurrence, "in_title": in_title}
+            df = DataFrame(new_word, index=[1])
+            result.append(df)
+
+        return result
+
+    def non_keywords_and_terms_sum(self, term_vectors, keywords, n_keys):
+
+        keywords = self.preprocessor.preprocess_text_elastic(' '.join(keywords), self.index, 'czech')
+        keywords = keywords.split(' ')
+
+        non_keywords = []
+        sum = 0
+        random_ints = []
+        while len(random_ints) != n_keys:
+            random_i = random.randint(0, len(term_vectors))
+            if random_i not in random_ints:
+                random_ints.append(random_i)
+
+        for i, key in enumerate(term_vectors):
+            if i in random_ints:
+                if key in keywords:
+                    random_ints.append(random.randint(i+1, len(term_vectors)))
+                else:
+                    non_keywords.append(key)
+
+            sum += term_vectors[key]['term_freq']
+
+        return non_keywords, sum
 
 
-        # TODO pridat ne klucove slova
+classificator = Classificator('test_text', None)
+classificator.generate_data('keywords.txt')
+

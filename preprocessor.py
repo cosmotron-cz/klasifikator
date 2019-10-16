@@ -75,10 +75,10 @@ class Preprocessor(object):
         es = Elasticsearch()
         all_words = text.split()
         result = ""
-        for n in range(0, len(all_words), 8000):
+        for n in range(0, len(all_words), 10000):
             body = {
               "analyzer": analyzer,
-              "text": ' '.join(all_words[n: n+8000])
+              "text": ' '.join(all_words[n: n+10000])
             }
 
             response = es.indices.analyze(index=index_to, body=body)
