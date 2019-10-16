@@ -282,7 +282,7 @@ class DataImporter:
                 except KeyError as ke:
                     # print(ke)
                     continue
-            uuids= pairs.get(oai, None)
+            uuids = pairs.get(oai, None)
             if uuids is None:
                 continue
             text = ""
@@ -295,7 +295,8 @@ class DataImporter:
             if text == "":
                 continue
             pre_text = Preprocessor.preprocess_text_elastic(text, index_to, 'czech')
-            new_dict = {'id_mzk': field_001, 'uuid': uuid, 'oai': oai, 'isbn': field_020, 'text': text, 'czech': pre_text,
+            new_dict = {'id_mzk': field_001, 'uuid': uuid, 'oai': oai, 'isbn': field_020, 'text': "",
+                        'czech': pre_text,
                         'text_pre': "", 'tags_pre': [], 'tags_elastic': [], 'keywords': keywords,
                         'konpsket': konspekts, 'mdt': mdts,
                         'title': field_245.get('a', "") + " " + field_245.get('b', "")}
@@ -418,13 +419,48 @@ class DataImporter:
             tar.extractall(path=texts_path + "\\temp")
             tar.close()
 
+    def get_missing_uuids(self, index):
+        pairs = Helper.get_pairs('data/sloucena_id')
+        te = TextExtractor('data/all', 'data/sorted_pages')
+        client = Elasticsearch()
+        s = Search(using=client, index=index)
+        s.execute()
+        found_uuids = []
+        i = 0
+        for hit in s.scan():
+            hit = hit.to_dict()
+            try:
+                field_001 = hit['001']
+                field_072 = hit['072']
+                oai = hit['OAI']['a']
+                field_245 = hit['245']
+            except KeyError as ke:
+                continue
+            uuids = pairs.get(oai, None)
+            if uuids is None:
+                continue
+            for ui in uuids:
+                ui = ui + ".tar.gz"
+                if ui not in te.all_files:
+                    found_uuids.append(ui)
+                else:
+                    i += 1
+        print(i)
+        print(len(found_uuids))
+        with open('uuids3.txt', 'w+', encoding="utf-8") as f:
+            for ui in found_uuids:
+                f.write(ui)
+
 
 index = 'keyword_czech'
 index_to = 'fulltext_mzk'
-# es = Elasticsearch()
+es = Elasticsearch()
 # es.indices.delete(index=index_to)
 mappings = {
     "mappings": {
+        "_source": {
+            "excludes": ["text", "czech"]
+        },
         "properties": {
             "title": {
                 "type": "keyword"
@@ -460,7 +496,8 @@ mappings = {
                 "type": "keyword"
             },
             "konspekt": {
-                "fields": {
+                "type": "nested",
+                "properties": {
                     "category": {
                         "type": "keyword"
                     },
@@ -487,12 +524,11 @@ mappings = {
         }
     },
     "settings": {
+        "index.analyze.max_token_count": 20000,
         "index": {
             "number_of_shards": 1,
-            "number_of_replicas": 0,
-            "index.highlight.max_analyzed_offset": 100000000
+            "number_of_replicas": 0
         },
-        "index.analyze.max_token_count": 20000,
         "analysis": {
             "analyzer": {
                 "czech": {
@@ -506,76 +542,47 @@ mappings = {
                         "czech_stop",
                         "unique_on_same_position"
                     ]
+                },
+                "fulltext_analyzer": {
+                    "type": "custom",
+                    "tokenizer": "standard",
+                    "filter": [
+                        "lowercase"
+                    ]
                 }
             },
-            "fulltext_analyzer": {
-                "type": "custom",
-                "tokenizer": "standard",
-                "filter": [
-                    "lowercase"
-                ]
-            }
-        },
-        "filter": {
-            "czech_hunspell": {
-                "type": "hunspell",
-                "locale": "cs_CZ"
-             },
-            "czech_stop": {
-                "type": "stop",
-                "stopwords": [
-                    "že",
-                    "_czech_"
-                ]
-            },
-            "czech_length": {
-                "type": "length",
-                "min": 2
-            },
-            "unique_on_same_position": {
-                "type": "unique",
-                "only_on_same_position": True
+            "filter": {
+                "czech_hunspell": {
+                    "type": "hunspell",
+                    "locale": "cs_CZ",
+                    "dedup": True
+                },
+                "czech_stop": {
+                    "type": "stop",
+                    "stopwords": [
+                        "že",
+                        "_czech_"
+                    ]
+                },
+                "czech_length": {
+                    "type": "length",
+                    "min": 2
+                },
+                "unique_on_same_position": {
+                    "type": "unique",
+                    "only_on_same_position": True
+                }
             }
         }
     }
 }
-# response = es.index(index=index_to, body=mappings)
+# response = es.indices.create(index=index_to, body=mappings)
 
 # print(response)
-body2 = {
-  "fields" : ["czech"],
-  "offsets" : True,
-  "payloads" : True,
-  "positions" : True,
-  "term_statistics" : True,
-  "field_statistics" : True
-}
-# response = es.termvectors(index_to, id='XA44ym0BMO8lDpHzO3Y8', body=body2)
+
 # print(response)
 path = 'C:\\Users\\jakub\\Documents\\metadata_mzk.xml'
 di = DataImporter()
-di.get_all_keywords(path)
-# di.import_fulltext(index, index_to)
-# di.import_metadata(path, index)
-# di.import_part_of_data(path, index, 1088969)
-# di.count_czech_not_tagged(path)
-# di.count_tagged_keywords(path)
-# DataImporter.import_texts('C:\\Users\\jakub\\Documents\\ziped1', 'C:\\Users\\jakub\\Documents\\sorted_pages_zip\\sorted_pages', "")
-
-# all_words = text.split()
-# for n in range(0, len(all_words), 8000):
-#     body3 = {
-#       "analyzer": "czech",
-#       "text": ' '.join(all_words[n: n+8000])
-#     }
-#
-#     response = es.indices.analyze(index=index_to, body=body3)
-# body3 = {
-#       "analyzer": "czech",
-#       "text": ' '.join(all_words[88000: ])
-#     }
-#
-# response = es.indices.analyze(index=index_to, body=body3)
-#
-# print(response)
-
+# di.get_missing_uuids(index)
+# di.get_all_keywords(path)
+di.import_fulltext(index, index_to)
