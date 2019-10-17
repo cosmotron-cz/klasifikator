@@ -136,3 +136,4 @@ venv.bak/
 *.csv
 *.pickle
 /logs
+uuids.txt
