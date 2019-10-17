@@ -8,7 +8,7 @@ from elasticsearch_dsl.utils import AttrDict
 import os
 import tarfile
 from helper.helper import Helper
-from helper.text_extractor import TextExtractor
+from helper.text_extractor import TextExtractor, TextExtractorPre
 from pathlib import Path
 import re
 import time
@@ -218,6 +218,7 @@ class DataImporter:
     def import_fulltext(self, index, to_index):
         pairs = Helper.get_pairs('data/sloucena_id')
         te = TextExtractor('data/all', 'data/sorted_pages')
+        te_pre = TextExtractorPre('data/all', 'data/sorted_pages')
         client = Elasticsearch()
         s = Search(using=client, index=index)
         s.execute()
@@ -294,12 +295,14 @@ class DataImporter:
                     break
             if text == "":
                 continue
-            pre_text = Preprocessor.preprocess_text_elastic(text, index_to, 'czech')
+            pre_text = te_pre.get_text(uuid) # TODO zmenit navratovu hodnotu
+            pre_text_split = pre_text.split(' ')
             new_dict = {'id_mzk': field_001, 'uuid': uuid, 'oai': oai, 'isbn': field_020, 'text': "",
                         'czech': pre_text,
                         'text_pre': "", 'tags_pre': [], 'tags_elastic': [], 'keywords': keywords,
                         'konpsket': konspekts, 'mdt': mdts,
-                        'title': field_245.get('a', "") + " " + field_245.get('b', "")}
+                        'title': field_245.get('a', "") + " " + field_245.get('b', ""),
+                        'czech_length': len(pre_text_split)}
             print('saving number:' + str(i))
             client.index(index=to_index, body=new_dict)
             # client.indices.refresh(index=index_to)
@@ -520,6 +523,9 @@ mappings = {
             },
             "isbn": {
                 "type": "keyword"
+            },
+            "czech_length": {
+                "type": "long"
             }
         }
     },
