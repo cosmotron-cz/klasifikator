@@ -183,7 +183,7 @@ class TextExtractorPre:
         return document
 
     def get_text(self, uuid):
-        print("proccesing file: " + uuid)
+        # print("proccesing file: " + uuid)
         try:
             processed = False
             document = self.check_processed(uuid)
@@ -205,7 +205,7 @@ class TextExtractorPre:
             print(err)
             document = ""
             pass
-        return "d"
+        return document
 
     def check_processed(self, current_uuid):
 
