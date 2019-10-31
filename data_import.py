@@ -288,14 +288,21 @@ class DataImporter:
                 continue
             text = ""
             uuid = ""
+            pre_text = ""
+            # for ui in uuids:
+            #     text = te.get_text(ui)
+            #     if text != "":
+            #         uuid = ui
+            #         break
+            # if text == "":
+            #     continue
             for ui in uuids:
-                text = te.get_text(ui)
-                if text != "":
+                pre_text = te_pre.get_text(ui)
+                if pre_text != "":
                     uuid = ui
                     break
-            if text == "":
+            if pre_text == "":
                 continue
-            pre_text = te_pre.get_text(uuid) # TODO zmenit navratovu hodnotu
             pre_text_split = pre_text.split(' ')
             new_dict = {'id_mzk': field_001, 'uuid': uuid, 'oai': oai, 'isbn': field_020, 'text': "",
                         'czech': pre_text,
@@ -304,7 +311,13 @@ class DataImporter:
                         'title': field_245.get('a', "") + " " + field_245.get('b', ""),
                         'czech_length': len(pre_text_split)}
             print('saving number:' + str(i))
-            client.index(index=to_index, body=new_dict)
+            try:
+                client.index(index=to_index, body=new_dict, request_timeout=60)
+            except exceptions.ElasticsearchException as elasticerror:
+                print("couldnt save document uuid: " + uuid + " length of document: " + str(len(pre_text_split)))
+                print(elasticerror)
+                pass
+
             # client.indices.refresh(index=index_to)
             i += 1
             # break
@@ -414,6 +427,52 @@ class DataImporter:
         print(error_log)
 
     @staticmethod
+    def get_tagged_missing_uuids(path):
+        i = 0
+        error_log = []
+        pairs = Helper.get_pairs('data/sloucena_id')
+        te = TextExtractor('data/all', 'data/sorted_pages')
+        found_uuids = []
+        for event, elem in etree.iterparse(path, events=('end', 'start-ns')):
+            if event == 'end':
+                if '}' in elem.tag:
+                    elem.tag = elem.tag.split('}', 1)[1]  # odstranenie namespace
+                if elem.tag == "record":
+                    try:
+                        xmlstr = etree.tostring(elem, encoding='unicode', method='xml')
+                        elem.clear()
+                        result = xmltodict.parse(xmlstr)
+                        result = result['record']  # odstranenie record tagu
+                        DataImporter.move_tag_names(result)
+                        try:
+                            field_001 = result['001']
+                            field_072 = result['072']
+                            oai = result['OAI']['a']
+                            if not DataImporter.is_in_language_dict(result, 'cze'):
+                                continue
+                        except KeyError as ke:
+                            continue
+                        uuids = pairs.get(oai, None)
+                        if uuids is None:
+                            continue
+                        for ui in uuids:
+                            ui = ui + ".tar.gz"
+                            if ui not in te.all_files:
+                                found_uuids.append(ui)
+                            else:
+                                i += 1
+                    except Exception as error:
+                        print(error)
+                        error_log.append(str(error))
+                        pass
+        print(i)
+        print(len(found_uuids))
+        with open('uuids5.txt', 'w+', encoding="utf-8") as f:
+            for ui in found_uuids:
+                f.write(ui)
+                f.write('\n')
+
+    @staticmethod
     def import_texts(texts_path, sorted_pages, index):
         for file in os.listdir(texts_path):
             if not file.endswith("tar.gz"):
@@ -436,7 +495,9 @@ class DataImporter:
                 field_001 = hit['001']
                 field_072 = hit['072']
                 oai = hit['OAI']['a']
-                field_245 = hit['245']
+                # field_245 = hit['245']
+                if not self.is_in_language_dict(hit, 'cze'):
+                    continue
             except KeyError as ke:
                 continue
             uuids = pairs.get(oai, None)
@@ -450,12 +511,13 @@ class DataImporter:
                     i += 1
         print(i)
         print(len(found_uuids))
-        with open('uuids3.txt', 'w+', encoding="utf-8") as f:
+        with open('uuids4.txt', 'w+', encoding="utf-8") as f:
             for ui in found_uuids:
                 f.write(ui)
+                f.write('\n')
 
 
-index = 'keyword_czech'
+index = 'records_mzk_filtered'
 index_to = 'fulltext_mzk'
 es = Elasticsearch()
 # es.indices.delete(index=index_to)
@@ -587,8 +649,9 @@ mappings = {
 # print(response)
 
 # print(response)
-path = 'C:\\Users\\jakub\\Documents\\metadata_mzk.xml'
+path = 'C:\\Users\\jakub\\Documents\\metadata_nkp.xml'
 di = DataImporter()
+di.get_tagged_missing_uuids(path)
 # di.get_missing_uuids(index)
 # di.get_all_keywords(path)
-di.import_fulltext(index, index_to)
+# di.import_fulltext(index, index_to)
