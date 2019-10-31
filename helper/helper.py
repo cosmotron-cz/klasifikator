@@ -4,6 +4,7 @@ import os
 import errno
 import pickle
 import re
+import scipy.sparse
 
 class Helper:
     stop_words = ["a sice", "a to", "a", "aby", "aj", "ale", "ani", "aniz", "aniž", "ano", "asi", "az",
@@ -127,6 +128,25 @@ class Helper:
         model_path = str(Path(path) / name)
         with open(model_path, "wb") as file:
             pickle.dump(model, file)
+
+    @staticmethod
+    def load_model(path):
+        with open(path, "rb") as file:
+            model = pickle.load(file)
+        return model
+
+    @staticmethod
+    def save_sparse_matrix(matrix, path, name):
+        try:
+            os.makedirs(path)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        if not name.endswith('.npz'):
+            name += '.npz'
+        matrix_path = str(Path(path) / name)
+        with open(matrix_path, "wb+") as file:
+            scipy.sparse.save_npz(file, matrix)
 
     @staticmethod
     def is_word_or_number(w):
