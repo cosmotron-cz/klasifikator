@@ -16,10 +16,10 @@ class Preprocessor(object):
         else:
             self.stop_words = Helper.stop_words
 
-        # if tagger is not None:
-        #     self.tagger = tagger
-        # else:
-        #     self.tagger = Tagger.load(str(dir_path / "dict/czech-morfflex-pdt-161115-pos_only.tagger"))
+        if tagger is not None:
+            self.tagger = tagger
+        else:
+            self.tagger = Tagger.load(str(dir_path / "dict/czech-morfflex-pdt-161115-pos_only.tagger"))
 
         self.morpho = Morpho.load(self.dictionary)
         if not self.morpho:
