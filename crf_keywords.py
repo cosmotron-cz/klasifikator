@@ -23,6 +23,7 @@ from sklearn.model_selection import KFold
 import numpy as np
 import logging
 
+
 class CrfKeywords:
     def __init__(self):
         date_now = datetime.now()
@@ -105,7 +106,6 @@ class CrfKeywords:
                 #     except KeyError:
                 #         raise Exception('keyerror while getting keywords')
 
-
                 max_lenght = 0
                 max_lenght_pre = 0
                 # text2 = []
@@ -176,16 +176,16 @@ class CrfKeywords:
             found = False
             for key in keywords:
                 len_keyword = len(key.split(' '))
-                if i+len_keyword >= len(text):
+                if i + len_keyword >= len(text):
                     continue
-                part = text[i:i+len_keyword]
+                part = text[i:i + len_keyword]
                 part = ' '.join(part)
                 if part == key:
                     if len_keyword == 1:
                         tags.append('k')
                     else:
                         tags.append('b')
-                        for p in text[i+1:i+len_keyword]:
+                        for p in text[i + 1:i + len_keyword]:
                             tags.append('p')
                     i += len_keyword
                     found = True
@@ -241,19 +241,20 @@ class CrfKeywords:
     def transform_data_from_csv(self, path):
         logging.info('Start transform data')
         chunks = pd.read_csv(path, index_col=0, chunksize=10000)
-        data = []
         X = []
         y = []
         uuid = ''
         document = []
         document_y = []
+        stack_before = []
+        counter_after = 0
         i = 0
         for chunk in chunks:
-            if i >= 400:
-                break
             logging.info('processing document number: ' + str(i))
+            if i >= 800:
+                break
             for indx, row in chunk.iterrows():
-                if i >= 400:
+                if i >= 800:
                     break
                 row = row.replace(np.nan, '', regex=True)
                 if uuid == '':
@@ -264,28 +265,52 @@ class CrfKeywords:
                     i += 1
                     document = []
                     document_y = []
+                    stack_before = []
+                    counter_after = 0
                     uuid = row['uuid']
-                if row['before'] == np.nan:
-                    before = ''
+                if row['tag'] == 'k':
+                    for row_before in stack_before:
+                        word = self.create_word_data(row_before)
+                        document.append(word)
+                        document_y.append(row_before['tag'])
+                    stack_before = []
+                    word = self.create_word_data(row)
+                    document.append(word)
+                    document_y.append(row['tag'])
+                    counter_after = 30
+                elif counter_after > 0:
+                    word = self.create_word_data(row)
+                    document.append(word)
+                    document_y.append(row['tag'])
+                    counter_after -= 1
                 else:
-                    before = row['before']
-                if row['after'] == np.nan:
-                    after = ''
-                else:
-                    after = row['after']
-                word = ['w=' + row['word'],
-                        'l=' + str(row['length']),
-                        'tf=' + str(row['tfidf']),
-                        'pos=' + row['pos'],
-                        'in=' + str(row['in_title']),
-                        'be=' + before,
-                        'af=' + after]
-                document.append(word)
-                document_y.append(row['tag'])
+                    if len(stack_before) < 30:
+                        stack_before.append(row)
+                    else:
+                        stack_before.append(row)
+                        stack_before.pop(0)
         X.append(document)
         y.append(document_y)
         logging.info('end transform data')
         return X, y
+
+    def create_word_data(self, row):
+        if row['before'] == np.nan:
+            before = ''
+        else:
+            before = row['before']
+        if row['after'] == np.nan:
+            after = ''
+        else:
+            after = row['after']
+        word = {'w': row['word'],
+                'l': row['length'],
+                'tf': row['tfidf'],
+                'pos': row['pos'],
+                'in': row['in_title'],
+                'be': before,
+                'af': after}
+        return word
 
     def cross_validation_crf(self, data=None, X=None, y=None):
         logging.info('start cross validation')
@@ -311,7 +336,6 @@ class CrfKeywords:
             Helper.save_model(estimator, results_dir, 'crf' + str(i))
         print(cv_results)
         logging.info(str(cv_results))
-
 
     def create_vectorizer_pre(self):
         mypath = "rake/processed"
@@ -354,7 +378,18 @@ class CrfKeywords:
         # data = pd.read_csv('2019_10_03_13_06/words_pre.csv', index_col=0)
         X, y = self.transform_data_from_csv('2019_10_03_13_06/words_pre.csv')
         try:
-            self.cross_validation_crf(None, X, y)
+            # self.cross_validation_crf(None, X, y)
+            crf = sklearn_crfsuite.CRF(
+                algorithm='lbfgs',
+                c1=0.1,
+                c2=0.1,
+                max_iterations=100,
+                all_possible_transitions=True,
+                verbose=True
+            )
+            crf.fit(X, y)
+            results_dir = Helper.create_results_dir()
+            Helper.save_model(crf, results_dir, 'crf')
         except Exception as e:
             logging.exception("Exeption during training")
             raise
@@ -365,5 +400,3 @@ crf.training_wrapper()
 # data = pd.read_csv('2019_10_03_12_33/words_pre.csv', index_col=0)
 # data = data.iloc[:9999]
 # crf.cross_validation_crf(data)
-
-
