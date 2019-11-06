@@ -137,3 +137,6 @@ venv.bak/
 *.pickle
 /logs
 uuids.txt
+uuids3.txt
+uuids4.txt
+uuids5.txt
