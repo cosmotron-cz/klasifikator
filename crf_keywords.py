@@ -3,6 +3,8 @@ from elasticsearch import Elasticsearch
 import pandas as pd
 from pandas import DataFrame, Series
 from datetime import datetime
+
+from sklearn.metrics import precision_recall_fscore_support
 from sklearn.model_selection import train_test_split
 import os
 import errno
@@ -294,6 +296,41 @@ class CrfKeywords:
         logging.info('end transform data')
         return X, y
 
+    def transform_data_from_csv_test(self, path):
+        logging.info('Start transform data')
+        chunks = pd.read_csv(path, index_col=0, chunksize=10000)
+        X = []
+        y = []
+        uuid = ''
+        document = []
+        document_y = []
+        i = 0
+        for chunk in chunks:
+            if i >= 100:
+                break
+            logging.info('processing document number: ' + str(i))
+            for indx, row in chunk.iterrows():
+                if i >= 100:
+                    break
+                row = row.replace(np.nan, '', regex=True)
+                if uuid == '':
+                    uuid = row['uuid']
+                if uuid != row['uuid']:
+                    i += 1
+                    uuid = row['uuid']
+                    X.append(document)
+                    y.append(document_y)
+                    document = []
+                    document_y = []
+
+                word = self.create_word_data(row)
+                document.append(word)
+                document_y.append(row['tag'])
+        X.append(document)
+        y.append(document_y)
+        logging.info('end transform data')
+        return X, y
+
     def create_word_data(self, row):
         if row['before'] == np.nan:
             before = ''
@@ -376,20 +413,18 @@ class CrfKeywords:
             logging.exception("Exeption during data generation")
             raise
         # data = pd.read_csv('2019_10_03_13_06/words_pre.csv', index_col=0)
-        X, y = self.transform_data_from_csv('2019_10_03_13_06/words_pre.csv')
         try:
-            # self.cross_validation_crf(None, X, y)
-            crf = sklearn_crfsuite.CRF(
-                algorithm='lbfgs',
-                c1=0.1,
-                c2=0.1,
-                max_iterations=100,
-                all_possible_transitions=True,
-                verbose=True
-            )
-            crf.fit(X, y)
-            results_dir = Helper.create_results_dir()
-            Helper.save_model(crf, results_dir, 'crf')
+            X, y = self.transform_data_from_csv_test('2019_10_03_13_06/words_pre.csv')
+        except Exception as e:
+            logging.exception("Exeption during data generation")
+            raise
+        try:
+            crf = Helper.load_model("2019_10_22_12_00/crf.pickle")
+            y_pred = crf.predict(X)
+            score = precision_recall_fscore_support(y, y_pred, average='weighted')
+            logging.info("precision:" + str(score[0]))
+            logging.info("recall:" + str(score[1]))
+            logging.info("f1:" + str(score[2]))
         except Exception as e:
             logging.exception("Exeption during training")
             raise
