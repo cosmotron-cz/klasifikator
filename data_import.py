@@ -310,7 +310,9 @@ class DataImporter:
                         'konpsket': konspekts, 'mdt': mdts,
                         'title': field_245.get('a', "") + " " + field_245.get('b', ""),
                         'czech_length': len(pre_text_split)}
+            print(new_dict)
             print('saving number:' + str(i))
+            break
             try:
                 client.index(index=to_index, body=new_dict, request_timeout=60)
             except exceptions.ElasticsearchException as elasticerror:
@@ -511,14 +513,14 @@ class DataImporter:
                     i += 1
         print(i)
         print(len(found_uuids))
-        with open('uuids4.txt', 'w+', encoding="utf-8") as f:
+        with open('uuids5.txt', 'w+', encoding="utf-8") as f:
             for ui in found_uuids:
                 f.write(ui)
                 f.write('\n')
 
 
 index = 'records_mzk_filtered'
-index_to = 'fulltext_mzk'
+index_to = 'test_shingle'
 es = Elasticsearch()
 # es.indices.delete(index=index_to)
 mappings = {
@@ -615,7 +617,8 @@ mappings = {
                     "type": "custom",
                     "tokenizer": "standard",
                     "filter": [
-                        "lowercase"
+                        "lowercase",
+                        "filter_shingle"
                     ]
                 }
             },
@@ -639,6 +642,12 @@ mappings = {
                 "unique_on_same_position": {
                     "type": "unique",
                     "only_on_same_position": True
+                },
+                "filter_shingle": {
+                    "type": "shingle",
+                    "max_shingle_size": 3,
+                    "min_shingle_size": 2,
+                    "output_unigrams": "true"
                 }
             }
         }
@@ -651,7 +660,7 @@ mappings = {
 # print(response)
 path = 'C:\\Users\\jakub\\Documents\\metadata_nkp.xml'
 di = DataImporter()
-di.get_tagged_missing_uuids(path)
+# di.get_tagged_missing_uuids(path)
 # di.get_missing_uuids(index)
 # di.get_all_keywords(path)
-# di.import_fulltext(index, index_to)
+di.import_fulltext(index, index_to)
