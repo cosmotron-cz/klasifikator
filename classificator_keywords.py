@@ -31,8 +31,7 @@ import xgboost as xgb
 #                         "562", "563", "565", "567", "580", "581", "583", "584", "585", "586", "588", "590", "595"]
 at_least_one = ["505", "520", "521", "630", "650"]
 
-
-class ClassifierKeywords:
+class Classificator:
     def __init__(self, fields, vectorizer, undersample, model):
         date_now = datetime.now()
         self.results_dir = date_now.strftime('%Y_%m_%d_%H_%M')
@@ -338,7 +337,7 @@ class ClassifierKeywords:
 clf = LinearSVC(random_state=0, tol=1e-5, C=1)
 # clf = xgb.XGBClassifier()
 # clf = MultinomialNB(alpha=0.5, fit_prior=True)
-classificator = ClassifierKeywords("select", "bow", False, clf)
+classificator = Classificator("select", "bow", False, clf)
 # classificator.grid_search()
 classificator.fit_eval(False)
 # classificator.save_model()

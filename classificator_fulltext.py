@@ -28,8 +28,7 @@ from multiprocessing import Pool
 from scipy.sparse import csr_matrix, save_npz, load_npz, vstack
 from sklearn.svm import SVC
 
-
-class ClassifierFulltext:
+class Classificator:
     def __init__(self, index, model):
         date_now = datetime.now()
         self.results_dir = Path(date_now.strftime('%Y_%m_%d_%H_%M'))
@@ -573,7 +572,7 @@ clf = LinearSVC(random_state=0, tol=1e-5, C=1)
 # clf = MultinomialNB(alpha=0.5, fit_prior=True)
 # clf = RandomForestClassifier(max_depth = 50, n_estimators=200, n_jobs=4)
 # clf = SVC(kernel='sigmoid', gamma=0.1, max_iter=1000)
-classificator = ClassifierFulltext('fulltext_mzk', clf)
+classificator = Classificator('fulltext_mzk', clf)
 # classificator.generate_dictionary()
 # classificator.generate_data('keywords.txt')
 # classificator.generate_data_keywords()
