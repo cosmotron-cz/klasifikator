@@ -5,6 +5,9 @@ from pandas import DataFrame, Series
 from datetime import datetime
 import os
 import errno
+
+from sklearn.preprocessing import LabelEncoder, normalize
+
 from preprocessor import Preprocessor
 from helper.text_extractor import TextExtractorPre
 from sklearn.model_selection import train_test_split, cross_val_score
@@ -376,8 +379,8 @@ class Classificator:
 
     def fit_eval(self, data, matrix, save=False):
         y = np.array(data['category'].tolist())
-        X = matrix
-        skf = StratifiedKFold(n_splits=2)
+        X = normalize(matrix)
+        skf = StratifiedKFold(n_splits=5)
         skf.get_n_splits(X, y)
         i = 0
         precisions = []
@@ -543,17 +546,41 @@ class Classificator:
             print(classification_report(y_true, y_pred))
             print()
 
-# clf = LinearSVC(random_state=0, tol=1e-5, C=1)
+    def split_data(self, data, matrix):
+        data.reset_index(drop=True, inplace=True)
+        results_dir = Helper.create_results_dir()
+        for i in range(1, 27):
+            group = data[data['category'] == i]
+            # print(group.index)
+            print(str(i) + " " + str(len(group.index)))
+            group_matrix = matrix[group.index, :]
+            # print(group_matrix.shape)
+            Helper.save_dataframe(group, str(i), results_dir)
+            Helper.save_sparse_matrix(group_matrix, results_dir, str(i))
+
+    def train_eval_groups(self, data, matrix):
+        data.reset_index(drop=True, inplace=True)
+        for i in range(1, 27):
+            group = data[data['category'] == i]
+            labelencoder = LabelEncoder()
+            group['category'] = labelencoder.fit_transform(group['group'])
+            print(str(i) + " " + str(len(group.index)))
+            group_matrix = matrix[group.index, :]
+            self.fit_eval(group, group_matrix)
+
+clf = LinearSVC(random_state=0, tol=1e-5, C=1)
 # clf = MultinomialNB(alpha=0.5, fit_prior=True)
 # clf = RandomForestClassifier(max_depth = 50, n_estimators=200, n_jobs=4)
-# clf = SVC(kernel='rbf')
-classificator = Classificator('fulltext_mzk', None)
+# clf = SVC(kernel='sigmoid', gamma=0.1, max_iter=1000)
+classificator = Classificator('fulltext_mzk', clf)
 # classificator.generate_dictionary()
 # classificator.generate_data('keywords.txt')
-classificator.generate_data_keywords()
-# data = pd.read_csv('2019_10_22_09_54/documents.csv', index_col=0)
-# matrix = load_npz('2019_10_22_09_54/tfidf.npz')
-# classificator.fit_eval(data, matrix, save=True)
+# classificator.generate_data_keywords()
+data = pd.read_csv('2019_10_22_09_54/documents.csv', index_col=0)
+matrix = load_npz('2019_10_22_09_54/tfidf.npz')
+# classificator.train_eval_groups(data, matrix)
+# classificator.split_data(data, matrix)
+classificator.fit_eval(data, matrix, save=True)
 # classificator.grid_search(data, matrix)
 # y = np.array(data['category'].tolist())
 # X = matrix
