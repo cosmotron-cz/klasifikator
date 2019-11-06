@@ -5,16 +5,21 @@ from elasticsearch import Elasticsearch
 
 
 class Preprocessor(object):
-    def __init__(self, dictionary=None, stop_words=None):
+    def __init__(self, dictionary=None, stop_words=None, tagger=None):
+        dir_path = Path(__file__).resolve().parent
         if dictionary is not None:
             self.dictionary = dictionary
         else:
-            dir_path = Path(__file__).resolve().parent
             self.dictionary = str(dir_path / "dict/czech-morfflex-161115-pos_only.dict")
         if stop_words is not None:
             self.stop_words = stop_words
         else:
             self.stop_words = Helper.stop_words
+
+        if tagger is not None:
+            self.tagger = tagger
+        else:
+            self.tagger = Tagger.load(str(dir_path / "dict/czech-morfflex-pdt-161115-pos_only.tagger"))
 
         self.morpho = Morpho.load(self.dictionary)
         if not self.morpho:
@@ -35,16 +40,19 @@ class Preprocessor(object):
         return result
 
     def pos_tag(self, text):
-        if isinstance(text, str):
-            text = self.tokenize(text)
-
+        if isinstance(text, list):
+            text = ' '.join(text)
         result = []
+        forms = Forms()
         lemmas = TaggedLemmas()
-        for word in text:
-            self.morpho.analyze(word, self.morpho.GUESSER, lemmas)
-            result.append(lemmas[0].tag)
-        if len(result) == 0:
-            result.append('X@')
+        tokens = TokenRanges()
+        tokenizer = self.tagger.newTokenizer()
+        tokenizer.setText(text)
+        while tokenizer.nextSentence(forms, tokens):
+            self.tagger.tag(forms, lemmas)
+            for i in range(len(lemmas)):
+                lemma = lemmas[i]
+                result.append(lemma.tag)
         return result
 
     def remove_stop_words(self, text):
@@ -75,10 +83,11 @@ class Preprocessor(object):
         es = Elasticsearch()
         all_words = text.split()
         result = ""
-        for n in range(0, len(all_words), 8000):
+        for n in range(0, len(all_words), 10000):
             body = {
               "analyzer": analyzer,
-              "text": ' '.join(all_words[n: n+8000])
+              "filter": ["unique_on_same_position"],
+              "text": ' '.join(all_words[n: n+10000])
             }
 
             response = es.indices.analyze(index=index_to, body=body)
@@ -87,6 +96,3 @@ class Preprocessor(object):
             for token in response['tokens']:
                 result += " " + token['token']
         return result
-
-
-

@@ -1,11 +1,11 @@
 import os
 import tarfile
-from nltk.tokenize import sent_tokenize
 from preprocessor import Preprocessor
 from gensim.models.doc2vec import TaggedDocument
 import errno
 from pathlib import Path
 from helper.helper import Helper
+from multiprocessing import Process
 
 
 class TextExtractor:
@@ -123,6 +123,7 @@ class TextExtractorPre:
         self.preprocess = preprocess
         self.uuids = uuids
         self.filter_nouns = filter_nouns
+        self.extractor = TextExtractor(self.directory, self.sorted_pages)
         try:
             os.makedirs(self.directory / 'processed')
         except OSError as e:
@@ -181,6 +182,31 @@ class TextExtractorPre:
             pass
         return document
 
+    def get_text(self, uuid):
+        # print("proccesing file: " + uuid)
+        try:
+            processed = False
+            document = self.check_processed(uuid)
+            if document is None:
+                document = self.extractor.get_text(uuid)
+            else:
+                processed = True
+            if processed is False:
+                if self.preprocess:
+                    document = self.processor.remove_stop_words(document)
+                    document = self.processor.lemmatize(document)
+                    if self.filter_nouns:
+                        document = Helper.filter_words(document, self.processor)
+                else:
+                    document = self.processor.tokenize(document)
+                document = ' '.join(document)
+                self.save_document(document, uuid)
+        except KeyError as err:
+            print(err)
+            document = ""
+            pass
+        return document
+
     def check_processed(self, current_uuid):
 
         if current_uuid.endswith('.tar.gz'):
@@ -232,3 +258,4 @@ class TextExtractorPreTag:
             document = self.processor.tokenize(document)
         self.index += 1
         return TaggedDocument(document, [self.index])
+
