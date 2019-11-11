@@ -33,6 +33,12 @@ from sklearn.metrics import classification_report
 from sklearn.preprocessing import LabelEncoder
 
 
+class KeywordsGenerator:
+    @staticmethod
+    def generate_kewords_elastic(id_elastic):
+        return []
+
+
 class KeywordsGeneratorTfidf:
     def fit_from_elastic(self, index):
         pairs = self.get_pairs()
