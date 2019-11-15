@@ -143,38 +143,23 @@ class TextExtractorPre:
         print("proccesing number: " + str(self.number))
         current_uuid = ""
         try:
-            processed = False
             if self.uuids is None:
                 current_uuid = self.extractor.all_files[0]
-                document = self.check_processed(current_uuid)
-                if document is None:
-                    document = next(self.extractor)
-                else:
-                    processed = True
+                document = next(self.extractor)
             else:
                 current_uuid = next(self.uuid_iter)
-                document = self.check_processed(current_uuid)
-                if document is None:
-                    document = self.extractor.get_text(current_uuid)
-                else:
-                    processed = True
-                if self.filter_nouns:
-                    document = document.split(' ')
-                    document = Helper.filter_words(document, self.processor)
-                    document = ' '.join(document)
+                document = self.extractor.get_text(current_uuid)
 
             if document == "":
                 return ""
-            if processed is False:
-                if self.preprocess:
-                    document = self.processor.remove_stop_words(document)
-                    document = self.processor.lemmatize(document)
-                    if self.filter_nouns:
-                        document = Helper.filter_words(document, self.processor)
-                else:
-                    document = self.processor.tokenize(document)
-                document = ' '.join(document)
-                self.save_document(document, current_uuid)
+            if self.preprocess:
+                document = self.processor.remove_stop_words(document)
+                document = self.processor.lemmatize(document)
+                if self.filter_nouns:
+                    document = Helper.filter_words(document, self.processor)
+            else:
+                document = self.processor.tokenize(document)
+            document = ' '.join(document)
             self.number += 1
         except KeyError as err:
             print(err)
@@ -183,24 +168,16 @@ class TextExtractorPre:
         return document
 
     def get_text(self, uuid):
-        # print("proccesing file: " + uuid)
         try:
-            processed = False
-            document = self.check_processed(uuid)
-            if document is None:
-                document = self.extractor.get_text(uuid)
+            document = self.extractor.get_text(uuid)
+            if self.preprocess:
+                document = self.processor.remove_stop_words(document)
+                document = self.processor.lemmatize(document)
+                if self.filter_nouns:
+                    document = Helper.filter_words(document, self.processor)
             else:
-                processed = True
-            if processed is False:
-                if self.preprocess:
-                    document = self.processor.remove_stop_words(document)
-                    document = self.processor.lemmatize(document)
-                    if self.filter_nouns:
-                        document = Helper.filter_words(document, self.processor)
-                else:
-                    document = self.processor.tokenize(document)
-                document = ' '.join(document)
-                self.save_document(document, uuid)
+                document = self.processor.tokenize(document)
+            document = ' '.join(document)
         except KeyError as err:
             print(err)
             document = ""
