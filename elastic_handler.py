@@ -32,7 +32,8 @@ class ElasticHandler:
         return index
 
     @staticmethod
-    def create_document_index(index, ngrams=1):
+    def create_document_index(index):
+
         mappings = {
             "mappings": {
                 "_source": {
@@ -79,6 +80,9 @@ class ElasticHandler:
                     "mdt": {
                         "type": "keyword"
                     },
+                    "additional_info": {
+                        "type": "text"
+                    },
                     "id_001": {
                         "type": "keyword"
                     },
@@ -97,6 +101,9 @@ class ElasticHandler:
                         "term_vector": "with_positions_offsets",
                         "store": True,
                         "index_options": "offsets"
+                    },
+                    "text_length": {
+                        "type": "long"
                     }
                 }
             },
@@ -112,110 +119,13 @@ class ElasticHandler:
                             "type": "custom",
                             "tokenizer": "standard",
                             "filter": [
-                                "lowercase",
-                                "filter_shingle"
+                                "lowercase"
                             ]
-                        }
-                    },
-                    "filter": {
-                        "filter_shingle": {
-                            "type": "shingle",
-                            "max_shingle_size": ngrams,
-                            "min_shingle_size": 2,
-                            "output_unigrams": "true"
                         }
                     }
                 }
             }
         }
-
-        if ngrams == 1:
-            mappings = {
-                "mappings": {
-                    "_source": {
-                        "excludes": ["text"]
-                    },
-                    "properties": {
-                        "title": {
-                            "type": "keyword"
-                        },
-                        "keywords": {
-                            "type": "keyword"
-                        },
-                        "keywords_generated": {
-                            "type": "keyword"
-                        },
-                        "konspekt": {
-                            "type": "nested",
-                            "properties": {
-                                "category": {
-                                    "type": "keyword"
-                                },
-                                "group": {
-                                    "type": "keyword"
-                                },
-                                "description": {
-                                    "type": "keyword"
-                                }
-                            }
-                        },
-                        "konspekt_generated": {
-                            "type": "nested",
-                            "properties": {
-                                "category": {
-                                    "type": "keyword"
-                                },
-                                "group": {
-                                    "type": "keyword"
-                                },
-                                "description": {
-                                    "type": "keyword"
-                                }
-                            }
-                        },
-                        "mdt": {
-                            "type": "keyword"
-                        },
-                        "id_001": {
-                            "type": "keyword"
-                        },
-                        "uuid": {
-                            "type": "keyword"
-                        },
-                        "oai": {
-                            "type": "keyword"
-                        },
-                        "isbn": {
-                            "type": "keyword"
-                        },
-                        "text": {
-                            "type": "text",
-                            "analyzer": "fulltext_analyzer",
-                            "term_vector": "with_positions_offsets",
-                            "store": True,
-                            "index_options": "offsets"
-                        }
-                    }
-                },
-                "settings": {
-                    "index.analyze.max_token_count": 20000,
-                    "index": {
-                        "number_of_shards": 1,
-                        "number_of_replicas": 0
-                    },
-                    "analysis": {
-                        "analyzer": {
-                            "fulltext_analyzer": {
-                                "type": "custom",
-                                "tokenizer": "standard",
-                                "filter": [
-                                    "lowercase"
-                                ]
-                            }
-                        }
-                    }
-                }
-            }
 
         es = Elasticsearch()
         response = es.indices.create(index=index, body=mappings)
@@ -245,7 +155,7 @@ class ElasticHandler:
     def save_keywords(index, id_elastic, keywords):
         es = Elasticsearch()
         # save keywords
-        body = {'doc':{'keywords_generated': keywords}}
+        body = {'doc': {'keywords_generated': keywords}}
         response = es.update(index=index, id=id_elastic, body=body)
         return response
 
