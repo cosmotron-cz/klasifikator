@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<all>
+<collection xmlns="http://www.loc.gov/MARC21/slim">
+	<record>
+      <leader>00000nam a22000002a 4500</leader>
+      <controlfield tag="001">000000116</controlfield>
+      <controlfield tag="003">CZ BrMZK</controlfield>
+      <controlfield tag="005">20080317144103.0</controlfield>
+      <controlfield tag="007">ta</controlfield>
+      <controlfield tag="008">950101s1991    xr     f            cze d</controlfield>
+      <datafield ind1=" " ind2=" " tag="040">
+        <subfield code="a">BOA001</subfield>
+        <subfield code="b">cze</subfield>
+      </datafield>
+      <datafield ind1="1" ind2=" " tag="041">
+        <subfield code="a">cze</subfield>
+        <subfield code="b">ger</subfield>
+        <subfield code="b">rus</subfield>
+      </datafield>
+      <datafield ind1="9" ind2=" " tag="080">
+        <subfield code="a">808.2-56</subfield>
+      </datafield>
+      <datafield ind1="1" ind2=" " tag="100">
+        <subfield code="a">Flídrová, Helena,</subfield>
+        <subfield code="d">1941-</subfield>
+        <subfield code="7">jk01031434</subfield>
+        <subfield code="4">aut</subfield>
+      </datafield>
+      <datafield ind1="1" ind2="0" tag="245">
+        <subfield code="a">Sociolingvistické a psycholingvistické aspekty dialogu a polylogu v ruštině /</subfield>
+        <subfield code="c">Helena Flídrová</subfield>
+      </datafield>
+      <datafield ind1=" " ind2=" " tag="250">
+        <subfield code="a">1. vyd.</subfield>
+      </datafield>
+      <datafield ind1=" " ind2=" " tag="260">
+        <subfield code="a">Praha :</subfield>
+        <subfield code="b">Státní pedagogické nakladatelství,</subfield>
+        <subfield code="c">1991</subfield>
+      </datafield>
+      <datafield ind1=" " ind2=" " tag="300">
+        <subfield code="a">174 s.</subfield>
+      </datafield>
+      <datafield ind1="1" ind2=" " tag="490">
+        <subfield code="a">Acta Universitatis Palackianae Olomucensis. Facultas philosophica ;</subfield>
+        <subfield code="v">Suppl. 29/1989</subfield>
+      </datafield>
+      <datafield ind1=" " ind2=" " tag="504">
+        <subfield code="a">Obsahuje bibliografii</subfield>
+      </datafield>
+      <datafield ind1=" " ind2=" " tag="546">
+        <subfield code="a">Německé a ruské resumé</subfield>
+      </datafield>
+      <datafield ind1=" " ind2="0" tag="830">
+        <subfield code="a">Acta Universitatis Palackianae Olomucensis.</subfield>
+        <subfield code="p">Facultas philosophica</subfield>
+      </datafield>
+      <datafield ind1=" " ind2=" " tag="910">
+        <subfield code="a">BOA001</subfield>
+        <subfield code="b">2-0966.152</subfield>
+      </datafield>
+      <datafield ind1=" " ind2=" " tag="964">
+        <subfield code="a">Ruština - polylogy - dialogy</subfield>
+      </datafield>
+      <datafield ind1=" " ind2=" " tag="990">
+        <subfield code="a">BK</subfield>
+      </datafield>
+      <datafield ind1="6" ind2=" " tag="996">
+        <subfield code="b">2619905610</subfield>
+        <subfield code="c">2-0966.152</subfield>
+        <subfield code="l">MZK</subfield>
+        <subfield code="r">Sklad / do 1 hodiny</subfield>
+        <subfield code="n">11</subfield>
+        <subfield code="w">000000116</subfield>
+        <subfield code="u">000010</subfield>
+        <subfield code="a">1</subfield>
+        <subfield code="e">BOA001</subfield>
+        <subfield code="j">MZK50</subfield>
+        <subfield code="s">P</subfield>
+        <subfield code="t">BOA001.MZK01000000116.MZK50000000116000010</subfield>
+      </datafield>
+      <datafield ind1=" " ind2=" " tag="OAI">
+        <subfield code="a">MZK01-000697050</subfield>
+      </datafield>
+    </record>
+	</collection>
+</all>
