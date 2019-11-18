@@ -561,15 +561,20 @@ class ClassifierFulltext:
 
     def train_eval_groups(self, data, matrix):
         data.reset_index(drop=True, inplace=True)
+        labelencoder = Helper.load_model('models/groups_labels.pickle')
         for i in range(1, 27):
             group = data[data['category'] == i]
-            labelencoder = LabelEncoder()
-            group['category'] = labelencoder.fit_transform(group['group'])
+            group['category'] = labelencoder.transform(group['group'])
             print(str(i) + " " + str(len(group.index)))
             group_matrix = matrix[group.index, :]
-            self.fit_eval(group, group_matrix)
+            y = np.array(group['category'].tolist())
+            X = normalize(group_matrix)
+            # self.fit_eval(group, group_matrix)
+            model = LinearSVC(random_state=0, tol=1e-2, C=1)
+            model.fit(X, y)
+            Helper.save_model(model, self.results_dir, 'groups_' + str(i))
 
-clf = LinearSVC(random_state=0, tol=1e-5, C=1)
+clf = LinearSVC(random_state=0, tol=1e-2, C=1)
 # clf = MultinomialNB(alpha=0.5, fit_prior=True)
 # clf = RandomForestClassifier(max_depth = 50, n_estimators=200, n_jobs=4)
 # clf = SVC(kernel='sigmoid', gamma=0.1, max_iter=1000)
@@ -579,9 +584,9 @@ classificator = ClassifierFulltext('fulltext_mzk', clf)
 # classificator.generate_data_keywords()
 data = pd.read_csv('2019_10_22_09_54/documents.csv', index_col=0)
 matrix = load_npz('2019_10_22_09_54/tfidf.npz')
-# classificator.train_eval_groups(data, matrix)
+classificator.train_eval_groups(data, matrix)
 # classificator.split_data(data, matrix)
-classificator.fit_eval(data, matrix, save=True)
+# classificator.fit_eval(data, matrix, save=True)
 # classificator.grid_search(data, matrix)
 # y = np.array(data['category'].tolist())
 # X = matrix
