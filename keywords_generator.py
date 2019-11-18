@@ -1,3 +1,5 @@
+import collections
+
 from elasticsearch_dsl import Search, Q
 from elasticsearch import Elasticsearch
 import pandas as pd
@@ -34,9 +36,38 @@ from sklearn.preprocessing import LabelEncoder
 
 
 class KeywordsGenerator:
-    @staticmethod
-    def generate_kewords_elastic(id_elastic):
-        return []
+    def __init__(self):
+        self.preprocessor = Preprocessor()
+
+    def generate_keywords_elastic(self, index, id_elastic):
+        elastic = Elasticsearch()
+        body = {
+            "fields": ["text"],
+            "term_statistics": True,
+            "field_statistics": True,
+            "positions": False,
+            "offsets": False,
+            "filter": {
+                "max_num_terms": 30,
+                "min_term_freq": 1,
+                "min_doc_freq": 1
+            }
+        }
+        try:
+            response = elastic.termvectors(index, id=id_elastic, body=body)
+        except KeyError:
+            return []
+        term_vectors = response['term_vectors']['text']['terms']
+        sorted_term_vectors = sorted(term_vectors.items(), key=lambda kv: kv[3], reverse=True)
+        sorted_term_vectors = collections.OrderedDict(sorted_term_vectors)
+        generated = []
+        for word in sorted_term_vectors:
+            tag = self.preprocessor.pos_tag(word)[0][0]
+            if tag == 'A' or tag == 'N':
+                generated.append(word)
+                if len(generated) == 10:
+                    break
+        return generated
 
 
 class KeywordsGeneratorTfidf:
@@ -833,8 +864,8 @@ class KeywordsGeneratorTfidf:
         print(found_count/keywords_count)
 
 
-index = "fulltext_mzk"
-kg = KeywordsGeneratorTfidf()
+# index = "fulltext_mzk"
+# kg = KeywordsGeneratorTfidf()
 # kg.elastic_keywords(index, 'keywords.txt')
 # kg.count_found_keywords(index)
 # documents = pd.read_csv('2019_10_30_10_35/documents.csv', index_col=0)
@@ -877,8 +908,8 @@ kg = KeywordsGeneratorTfidf()
 
 
 # kg.fit_from_elastic(index)
-test = pd.read_csv('2019_10_31_17_29/keywords_elastic_tfidf.csv', index_col=0)
-kg.evaluate_keywords(test)
+# test = pd.read_csv('2019_10_31_17_29/keywords_elastic_tfidf.csv', index_col=0)
+# kg.evaluate_keywords(test)
 # clf = LinearSVC(random_state=0, tol=1e-5, C=1)
 # clf = SVC(kernel='poly')
 # clf = RandomForestClassifier(max_depth=50, n_estimators=200, n_jobs=4)
