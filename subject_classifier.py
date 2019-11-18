@@ -8,6 +8,8 @@ from elastic_handler import ElasticHandler
 from preprocessor import Preprocessor
 from keywords_generator import KeywordsGenerator
 from helper.helper import Helper
+from data_import import DataImporter
+from data_export import DataExporter
 
 
 class SubjectClassifier:
@@ -35,33 +37,57 @@ class SubjectClassifier:
                 new_dict = {"category": k, "description": desc, "original": ""}
                 self.rules[pattern] = new_dict
 
-    def classify_document(self, metadata, fulltext):
-        # prepossessing fulltext and save document to elastic
-        fulltext_pre = self.preprocessor.remove_stop_words(fulltext)
-        fulltext_pre = self.preprocessor.lemmatize(fulltext_pre)
-        id_elastic = self.elastic_handler.save_document(metadata, fulltext, fulltext_pre)
-        if id_elastic is None:
-            raise Exception('Could not save document')
+    def import_data(self, path):
+        index = ElasticHandler.get_index()
+        ElasticHandler.create_document_index(index)
+        importer = DataImporter()
+        importer.import_data(path, index)
 
-        konspekt = None
-        keywords = None
-        if metadata['mdt'] is not None:
-            # generate konspekt from mdt
-            konspekt = self.match_konspekt.find_and_choose(metadata['mdt'])  # TODO skontolovat
+    def classify_documents(self):
+        index = ElasticHandler.get_index()
+        all_documents = ElasticHandler.select_all(index)
+        for document in all_documents:
+            id_elastic = document.meta.id
+            document = document.to_dict()
+            generated = False
 
-        if konspekt is None and metadata.get('keywords', None) is not None:
-            # generate konspekt from keywords
-            konspekt = self.classifier_keywords.classify_elastic(id_elastic)  # TODO skontolovat
+            mdt = document.get('mdt', None)
+            if mdt is not None:
+                konspekt_generated = self.match_konspekt.find_and_choose(mdt)
+                ElasticHandler.save_konspekt(index, id_elastic, konspekt_generated)
+                generated = True
 
-        if konspekt is None:
-            # generate konspekt from fulltext
-            konspekt = self.classifier_fulltext.classify_elastic(id_elastic)  # TODO skontolovat
+            keywords = document.get('keywords', None)
+            if generated is False and keywords is not None:
+                keywords = ' '.join(keywords)
+                keywords = self.preprocessor.remove_stop_words(keywords)
+                keywords = self.preprocessor.lemmatize(keywords)
+                category, group = self.classifier_keywords.classify(keywords)
+                description = self.rules.get(group, "")
+                konspekt_generated = {"category": category, "group": group, "description": description}
+                ElasticHandler.save_konspekt(index, id_elastic, konspekt_generated)
+                generated = True
 
-        if metadata.get('keywords', None) is None:
-            # generate keywords from fulltext
-            keywords = self.keyword_generator.generate_kewords_elastic(id_elastic)  # TODO skontolovat
+            if generated is False:
+                term_vectors, doc_count = ElasticHandler.term_vectors(index, id_elastic)
+                if term_vectors is not None and doc_count is not None:
+                    category, group = self.classifier_fulltext.classify(term_vectors, document['text_length'],
+                                                                        doc_count)
+                    description = self.rules.get(group, "")
+                    konspekt_generated = {"category": category, "group": group, "description": description}
+                    ElasticHandler.save_konspekt(index, id_elastic, konspekt_generated)
+                    generated = True
 
-        return konspekt, keywords
+            if keywords is None:
+                keywords = self.keyword_generator.generate_keywords_elastic(index, id_elastic)
+                ElasticHandler.save_keywords(index, id_elastic, keywords)
+
+    def export_data(self, path_from, path_to=None):
+        if path_to is None:
+            path_to = 'export.xml'
+        index = ElasticHandler.get_index()
+        exporter = DataExporter()
+        exporter.add_all_xml(path_from, path_to, index)
 
 
 class ClassifierKeywords:
@@ -75,7 +101,6 @@ class ClassifierKeywords:
         self.label_encoder = Helper.load_model(self.script_directory + '/models/keywords/groups_labels.pickle')
         self.tfidf = Helper.load_model(self.script_directory + '/models/keywords/tfidf.pickle')
         self.preprocessor = preprocessor
-
 
     def classify(self, keywords):
         text = ""
@@ -104,14 +129,14 @@ class ClassifierFulltext:
         self.preprocessor = preprocessor
         self.dictionary = self.prepare_dictionary(self.script_directory + '/dictionary.txt')
 
-    def classify(self, term_vectors, word_count, doc_count):
+    def classify(self, term_vectors, text_length, doc_count):
         tfidf_vector = []
         for word in self.dictionary:
             term = term_vectors.get(word, None)
             if term is None:
                 tfidf_vector.append(0.0)
             else:
-                tfidf = self.tfidf(term['term_freq'], term['doc_freq'], doc_count, word_count)
+                tfidf = self.tfidf(term['term_freq'], term['doc_freq'], doc_count, text_length)
                 tfidf_vector.append(tfidf)
 
         matrix = csr_matrix(tfidf_vector)
@@ -142,6 +167,6 @@ class ClassifierFulltext:
         res.sort()
         return res
 
-    def tfidf(self, term_freq, doc_freq,  doc_count, sum):
-        inverse_doc_freq = np.log(doc_count/doc_freq)
+    def tfidf(self, term_freq, doc_freq, doc_count, sum):
+        inverse_doc_freq = np.log(doc_count / doc_freq)
         return term_freq / sum * inverse_doc_freq
