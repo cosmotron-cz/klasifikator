@@ -256,6 +256,6 @@ class ElasticHandler:
         exists_query = Search(using=es, index=index).query(Q({"match": {"id_001": id_001}}))
         response = exists_query.execute()
         if len(response.hits) != 0:
-            return response.hits[0]
+            return response.hits[0].to_dict()
         else:
             return None
