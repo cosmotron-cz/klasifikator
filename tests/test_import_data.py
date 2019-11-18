@@ -12,13 +12,17 @@ class TestDataImport(unittest.TestCase):
         if es.indices.exists(index=index):
             es.indices.delete(index=index)
         response = ElasticHandler.create_document_index(index)
-        self.assertEqual(index, response['index'])
-        path = 'test_data'
-        DataImporter.import_data(path, index)
-        es.indices.refresh(index=index)
-        exists_query = Search(using=es, index=index).query(Q({"match": {"id_001": "000000116"}}))
-        response = exists_query.execute()
-        self.assertEqual(1, len(response.hits))
+        try:
+            self.assertEqual(index, response['index'])
+            path = 'test_data'
+            DataImporter.import_data(path, index)
+            es.indices.refresh(index=index)
+            exists_query = Search(using=es, index=index).query(Q({"match": {"id_001": "000000116"}}))
+            response = exists_query.execute()
+            self.assertEqual(1, len(response.hits))
+        finally:
+            if es.indices.exists(index=index):
+                es.indices.delete(index=index)
 
 
 if __name__ == '__main__':
