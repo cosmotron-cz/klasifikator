@@ -5,6 +5,9 @@ from pandas import DataFrame, Series
 from datetime import datetime
 import os
 import errno
+
+from sklearn.preprocessing import LabelEncoder
+
 from preprocessor import Preprocessor
 from vectorizer import Vectorizer, D2VVectorizer
 from helper.text_extractor import TextExtractorPreTag
@@ -21,14 +24,9 @@ import numpy as np
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report
 import xgboost as xgb
+from helper.helper import Helper
 
-# at_least_one = ["600", "610", "611", "630", "650", "500", "501", "502", "504", "505", "506", "507", "508",
-#                         "510", "511",
-#                         "513", "514", "515", "516", "518", "520", "521", "522", "524", "525", "526", "530", "532",
-#                         "533", "534",
-#                         "535", "536", "538", "540", "541", "542", "544", "545", "546", "547", "550", "552", "555",
-#                         "556", "561",
-#                         "562", "563", "565", "567", "580", "581", "583", "584", "585", "586", "588", "590", "595"]
+
 at_least_one = ["505", "520", "521", "630", "650"]
 
 
@@ -39,8 +37,8 @@ class ClassifierKeywords:
         self.under = undersample
         self.fields = fields
         self.v = vectorizer
-        # self.pre = Preprocessor()
-        # index = "records_mzk_filtered"
+        self.pre = Preprocessor()
+        index = "records_mzk_filtered"
 
         # self.es = Elasticsearch()
         # s = Search(using=self.es, index=index)
@@ -62,19 +60,25 @@ class ClassifierKeywords:
         #             continue
         #         dataframes.append(df)
         # self.data = pd.concat(dataframes)
-        data_path = ""
-        if fields == 'all':
-            data_path = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\lem_all.csv"
-        elif fields == "select":
-            data_path = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\lem_select.csv"
+        # Helper.save_dataframe(self.data, 'with_group_select', self.results_dir)
+        data_path = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\2019_11_12_08_46\\with_group_select.csv"
+        # if fields == 'all':
+        #     data_path = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\lem_all.csv"
+        # elif fields == "select":
+        #     data_path = "C:\\Users\\jakub\\PycharmProjects\\klasifikator\\processed data\\lem_select.csv"
         self.data = pd.read_csv(data_path, index_col=0)
         self.data = self.data.dropna(axis=0)
         self.data = self.data[self.data.konspekt.isin(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12',
                                                        '13', '14', '15', '16', '17', '18', '19', '20', '21', '22',
                                                        '23', '24', '25', '26'])]
 
-        self.vectorizer = Vectorizer(vectorizer=vectorizer, ngram=2)
-        self.vectorizer.fit(self.data)
+        self.vectorizer = Vectorizer(load_vec='2019_11_18_13_36/vectorizer.pickle')
+        # self.vectorizer.fit(self.data)
+        # self.vectorizer.save(self.results_dir)
+        # labelencoder = LabelEncoder()
+        # labelencoder.fit(self.data['group'])
+        # Helper.save_model(labelencoder, self.results_dir, 'groups_labels')
+        # Helper.save_model(self.vectorizer, self.results_dir, 'tfidf')
         # matrix = self.vectorizer.get_matrix(self.data)
         # self.data['vector'] = list(matrix)
         # self.vector = matrix
@@ -100,8 +104,10 @@ class ClassifierKeywords:
         new_dict['OAI'] = hit_dict['OAI']['a']
         if isinstance(hit_dict['072'], list):
             new_dict['konspekt'] = hit_dict['072'][0]['9']
+            new_dict['group'] = hit_dict['072'][0]['a']
         else:
             new_dict['konspekt'] = hit_dict['072']['9']
+            new_dict['group'] = hit_dict['072']['a']
         text = ""
         for key in at_least_one:
             value = hit_dict.get(key, None)
@@ -225,6 +231,10 @@ class ClassifierKeywords:
     def fit_eval(self, save=False):
         y = np.array(self.data['konspekt'].tolist())
         X = self.vectorizer.transform(self.data)
+        model = LinearSVC(random_state=0, tol=1e-2, C=1)
+        model.fit(X, y)
+        Helper.save_model(model, self.results_dir, 'category')
+        return
         skf = StratifiedKFold(n_splits=10)
         skf.get_n_splits(X, y)
         i = 0
@@ -276,6 +286,72 @@ class ClassifierKeywords:
             file.write(str(fscores) + '\n')
             file.write(str(sum(fscores) / len(fscores)) + '\n')
 
+    def fit_eval_groups(self, save=False):
+        pd.options.mode.chained_assignment = None
+        labelencoder = Helper.load_model('models/keywords/groups_labels.pickle')
+        for i in range(1, 27):
+            group = self.data[self.data['konspekt'] == i]
+            # labelencoder = LabelEncoder()
+            group['group'] = labelencoder.transform(group['group'])
+            print(str(i) + " " + str(len(group.index)))
+            y = np.array(group['group'].tolist())
+            X = self.vectorizer.transform(group)
+            model = LinearSVC(random_state=0, tol=1e-2, C=1)
+            model.fit(X, y)
+            Helper.save_model(model, self.results_dir, 'groups_' + str(i))
+            continue
+            skf = StratifiedKFold(n_splits=10)
+            skf.get_n_splits(X, y)
+            i = 0
+            precisions = []
+            recalls = []
+            fscores = []
+            for train_index, test_index in skf.split(X, y):
+                print("Start training iteration: " + str(i))
+                X_train, X_test = X[train_index], X[test_index]
+                y_train, y_test = y[train_index], y[test_index]
+                if self.under:
+                    X_train, y_train = self.undersample(X_train, y_train)
+                self.model.fit(X_train, y_train)
+                print("End training")
+                i += 1
+                y_pred = self.model.predict(X_test)
+                score = precision_recall_fscore_support(y_test, y_pred, average='micro')
+                precisions.append(score[0])
+                recalls.append(score[1])
+                fscores.append(score[2])
+
+            name = type(self.model).__name__
+            params = self.model.get_params()
+            print("fields:" + self.fields + " vectorizer: " + self.v + " undersample: " + str(self.under))
+            print(name)
+            print(params)
+            print(precisions)
+            print(str(sum(precisions)/len(precisions)))
+            print(recalls)
+            print(str(sum(recalls) / len(recalls)))
+            print(fscores)
+            print(str(sum(fscores) / len(fscores)))
+            if save is False:
+                continue
+            try:
+                os.makedirs(self.results_dir)
+            except OSError as e:
+                if e.errno != errno.EEXIST:
+                    raise
+            name_file = "result" + str(i) + ".txt"
+            result_path = str(Path(self.results_dir) / name_file)
+            with open(result_path, 'w+') as file:
+                file.write("fields:" + self.fields + " vectorizer: " + self.v + " undersample: " + str(self.under) + '\n')
+                file.write(str(name) + '\n')
+                file.write(str(params) + '\n')
+                file.write(str(precisions) + '\n')
+                file.write(str(sum(precisions)/len(precisions)) + '\n')
+                file.write(str(recalls) + '\n')
+                file.write(str(sum(recalls) / len(recalls)) + '\n')
+                file.write(str(fscores) + '\n')
+                file.write(str(sum(fscores) / len(fscores)) + '\n')
+
     def grid_search(self):
         y = np.array(self.data['konspekt'].tolist())
         X = self.vectorizer.transform(self.data)
@@ -324,6 +400,7 @@ class ClassifierKeywords:
             print(classification_report(y_true, y_pred))
             print()
 
+
 # vectorizer = Vectorizer()
 # tfidf = vectorizer.bag_of_words(data)
 # print(list(tfidf.toarray()))
@@ -335,12 +412,13 @@ class ClassifierKeywords:
 #data['vector'] = data['lematized'].apply(vectorizer.get_vector)
 #data = data[~data.konspekt.isin(['6', '10', '13'])] odstranenie najmensich tried
 # clf = RandomForestClassifier()
-clf = LinearSVC(random_state=0, tol=1e-5, C=1)
+clf = LinearSVC(random_state=0, tol=1e-2, C=1)
 # clf = xgb.XGBClassifier()
 # clf = MultinomialNB(alpha=0.5, fit_prior=True)
-classificator = ClassifierKeywords("select", "bow", False, clf)
+classificator = ClassifierKeywords("select", "tfidf", False, clf)
 # classificator.grid_search()
-classificator.fit_eval(False)
+classificator.fit_eval_groups()
+# classificator.fit_eval(False)
 # classificator.save_model()
 # classificator.save_state()
 # classificator.data = classificator.data.replace({'konspekt': '10'}, '6') # spojenie najmensich tried
