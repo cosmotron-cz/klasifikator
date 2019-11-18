@@ -37,29 +37,29 @@ class MatchKonspekt():
         all_konspekts = []
         second = ["37.016", "01", "929", "8-93", "821-93", "09", "912"]
         for mdt in mdts:
-            category, subcategory, description = self.find_category(mdt)
+            category, group, description = self.find_category(mdt)
             if category != -1:
                 if result[0] is None:
-                    result[0] = {"category": category, "subcategory": subcategory, "description": description}
+                    result[0] = {"category": category, "group": group, "description": description}
                     continue
-                all_konspekts.append({"category": category, "subcategory": subcategory, "description": description})
+                all_konspekts.append({"category": category, "group": group, "description": description})
         for found in all_konspekts:
-            if result[2] is None and found['subcategory'] != result[0]['subcategory'] and \
-                    self.is_childs_literature(found["subcategory"]):
-                rule = self.rules.get(found["subcategory"], None)
-                result[2] = {"category": rule["category"], "subcategory": found["subcategory"],
+            if result[2] is None and found['group'] != result[0]['group'] and \
+                    self.is_childs_literature(found["group"]):
+                rule = self.rules.get(found["group"], None)
+                result[2] = {"category": rule["category"], "group": found["group"],
                              "description": rule["description"]}
                 continue
-            if result[2] is None and found['subcategory'] != result[0]['subcategory'] and \
-                    found["subcategory"] in second:
-                rule = self.rules.get(found["subcategory"], None)
-                result[2] = {"category": rule["category"], "subcategory": found["subcategory"],
+            if result[2] is None and found['group'] != result[0]['group'] and \
+                    found["group"] in second:
+                rule = self.rules.get(found["group"], None)
+                result[2] = {"category": rule["category"], "group": found["group"],
                              "description": rule["description"]}
                 continue
             if result[1] is None and found['category'] != result[0]['category'] and \
-                    (result[2] is None or found['subcategory'] != result[2]['subcategory']):
-                rule = self.rules.get(found["subcategory"], None)
-                result[1] = {"category": rule["category"], "subcategory": found["subcategory"],
+                    (result[2] is None or found['group'] != result[2]['group']):
+                rule = self.rules.get(found["group"], None)
+                result[1] = {"category": rule["category"], "group": found["group"],
                              "description": rule["description"]}
         return result[0], result[1], result[2]
 
