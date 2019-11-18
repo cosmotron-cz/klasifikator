@@ -143,7 +143,9 @@ class ElasticHandler:
         es = Elasticsearch()
         dicts = []
         for k in konspekt:
-            dict_konspekt = {'category': k[0], 'group': k[1], 'description': [2]}
+            if k is None:
+                continue
+            dict_konspekt = {'category': k['category'], 'group': k['group'], 'description': k['description']}
             dicts.append(dict_konspekt)
 
         # save konspekt
@@ -169,8 +171,11 @@ class ElasticHandler:
         }
         es = Elasticsearch()
         response = es.termvectors(index=index, id=id_elastic, body=body)
-        term_vectors = response['term_vectors']['text']['terms']
-        doc_count = response['term_vectors']['text']['field_statistics']['doc_count']
+        try:
+            term_vectors = response['term_vectors']['text']['terms']
+            doc_count = response['term_vectors']['text']['field_statistics']['doc_count']
+        except KeyError:
+            return None, None
         return term_vectors, doc_count
 
     @staticmethod
