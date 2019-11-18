@@ -85,8 +85,8 @@ class TestClassifiers(unittest.TestCase):
                 "score": 103.60153
             }}
         doc_count = 17
-        word_count = 10575
-        category, group = classifier_keywords.classify(term_vectors, word_count, doc_count)
+        text_length = 10575
+        category, group = classifier_keywords.classify(term_vectors, text_length, doc_count)
         if category is None:
             self.fail("classify didn't return category")
         try:
