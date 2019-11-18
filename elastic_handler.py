@@ -170,7 +170,8 @@ class ElasticHandler:
         es = Elasticsearch()
         response = es.termvectors(index=index, id=id_elastic, body=body)
         term_vectors = response['term_vectors']['text']['terms']
-        return term_vectors
+        doc_count = response['term_vectors']['text']['field_statistics']['doc_count']
+        return term_vectors, doc_count
 
     @staticmethod
     def get_text(index, id_elastic):
@@ -248,3 +249,13 @@ class ElasticHandler:
         s = Search(using=es, index=index)
         s.execute()
         return s
+
+    @staticmethod
+    def get_document(index, id_001):
+        es = Elasticsearch()
+        exists_query = Search(using=es, index=index).query(Q({"match": {"id_001": id_001}}))
+        response = exists_query.execute()
+        if len(response.hits) != 0:
+            return response.hits[0]
+        else:
+            return None
