@@ -6,7 +6,7 @@ class MatchKonspekt():
         self.rules = {}
         k = 0
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        with open(dir_path + "\\rules.txt", "r", encoding="utf8") as file:
+        with open(dir_path + "/rules.txt", "r", encoding="utf8") as file:
             slash_mdt = []
             for line in file:
                 parts = line.split("$$")
