@@ -15,14 +15,14 @@ class ElasticHandler:
     @staticmethod
     def get_environment():
         config = ElasticHandler.get_config()
-        environment = config.read_string('elastic', 'environment')
+        environment = config.get('elastic', 'environment')
         return environment
 
     @staticmethod
     def get_index():
         config = ElasticHandler.get_config()
-        environment = config.read_string('elastic', 'environment')
-        index = config.read_string(environment, 'index')
+        environment = config.get('elastic', 'environment')
+        index = config.get(environment, 'index')
         return index
 
     @staticmethod
