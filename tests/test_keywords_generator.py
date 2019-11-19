@@ -29,11 +29,11 @@ class TestKeywordsGenerator(unittest.TestCase):
 
             generator = KeywordsGenerator()
             keywords = generator.generate_keywords_elastic(index, response['_id'])
+            for word in keywords:
+                self.assertEqual(isinstance(word, str), True)
         finally:
             if es.indices.exists(index=index):
                 es.indices.delete(index=index)
-
-        self.assertEqual(True, False)
 
 
 if __name__ == '__main__':

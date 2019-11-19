@@ -1,4 +1,5 @@
-import collections
+from collections import OrderedDict
+from operator import getitem
 
 from elasticsearch_dsl import Search, Q
 from elasticsearch import Elasticsearch
@@ -58,8 +59,8 @@ class KeywordsGenerator:
         except KeyError:
             return []
         term_vectors = response['term_vectors']['text']['terms']
-        sorted_term_vectors = sorted(term_vectors.items(), key=lambda kv: kv[3], reverse=True)
-        sorted_term_vectors = collections.OrderedDict(sorted_term_vectors)
+        sorted_term_vectors = OrderedDict(sorted(term_vectors.items(), key=lambda x: getitem(x[1], 'score'),
+                                                 reverse=True))
         generated = []
         for word in sorted_term_vectors:
             tag = self.preprocessor.pos_tag(word)[0][0]
