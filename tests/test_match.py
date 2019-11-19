@@ -23,17 +23,17 @@ class TestMatchKonspect(unittest.TestCase):
         unpacked = ["821.81.09", "821.82.09"]
         self.assertEqual(unpacked, returned)
 
-    def test_unpack_dash(self):
-        mk = MatchKonspekt()
-        mdt = "36-1/-7"
-        returned = mk.unpack_mdt2(mdt)
-        unpacked = ["36-1", "36-2", "36-3", "36-4", "36-5", "36-6", "36-7"]
-        self.assertEqual(unpacked, returned)
+    # def test_unpack_dash(self):
+    #     mk = MatchKonspekt()
+    #     mdt = "36-1/-7"
+    #     returned = mk.unpack_mdt(mdt)
+    #     unpacked = ["36-1", "36-2", "36-3", "36-4", "36-5", "36-6", "36-7"]
+    #     self.assertEqual(unpacked, returned)
 
     def test_unpack_parenthesis(self):
         mk = MatchKonspekt()
         mdt = "94(420/429)"
-        returned = mk.unpack_mdt2(mdt)
+        returned = mk.unpack_mdt(mdt)
         unpacked = ["94(420)", "94(421)", "94(422)", "94(423)", "94(424)", "94(425)", "94(426)", "94(427)", "94(428)",
                     "94(429)"]
         self.assertEqual(unpacked, returned)
@@ -77,7 +77,7 @@ class TestMatchKonspect(unittest.TestCase):
         mk = MatchKonspekt()
         mdt = "94(420)"
         returned = mk.shorten_from_right(mdt)
-        expected = "94"
+        expected = "94(42)"
         self.assertEqual(expected, returned)
 
     def test_shorten_quotes(self):

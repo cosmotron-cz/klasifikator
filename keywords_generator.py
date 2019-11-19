@@ -34,6 +34,7 @@ import numpy as np
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report
 from sklearn.preprocessing import LabelEncoder
+from elastic_handler import ElasticHandler
 
 
 class KeywordsGenerator:
@@ -41,24 +42,9 @@ class KeywordsGenerator:
         self.preprocessor = Preprocessor()
 
     def generate_keywords_elastic(self, index, id_elastic):
-        elastic = Elasticsearch()
-        body = {
-            "fields": ["text"],
-            "term_statistics": True,
-            "field_statistics": True,
-            "positions": False,
-            "offsets": False,
-            "filter": {
-                "max_num_terms": 30,
-                "min_term_freq": 1,
-                "min_doc_freq": 1
-            }
-        }
-        try:
-            response = elastic.termvectors(index, id=id_elastic, body=body)
-        except KeyError:
+        term_vectors = ElasticHandler.term_vectors_keywords(index, id_elastic)
+        if term_vectors is None:
             return []
-        term_vectors = response['term_vectors']['text']['terms']
         sorted_term_vectors = OrderedDict(sorted(term_vectors.items(), key=lambda x: getitem(x[1], 'score'),
                                                  reverse=True))
         generated = []

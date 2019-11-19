@@ -8,6 +8,7 @@ from preprocessor import Preprocessor
 class TestKeywordsGenerator(unittest.TestCase):
     def test_generate_keywords(self):
         index = ElasticHandler.get_test_index()
+        ElasticHandler.remove_index(index)
         es = Elasticsearch()
         if es.indices.exists(index=index):
             es.indices.delete(index=index)

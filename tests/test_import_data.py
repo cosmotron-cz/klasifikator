@@ -8,6 +8,7 @@ from elasticsearch_dsl import Search, Q
 class TestDataImport(unittest.TestCase):
     def test_data_import(self):
         index = ElasticHandler.get_test_index()
+        ElasticHandler.remove_index(index)
         es = Elasticsearch()
         if es.indices.exists(index=index):
             es.indices.delete(index=index)
