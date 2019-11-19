@@ -158,6 +158,8 @@ class DataImporter:
                         additional_info = additional_info + " " + str(a['a'])
                 else:
                     additional_info = additional_info + " " + value['a']
+        if additional_info == "":
+            additional_info = None
         field_020 = result.get('020', "")
         if field_020 != "":
             if isinstance(field_020, list):
@@ -173,6 +175,8 @@ class DataImporter:
                     continue
             else:
                 continue
+        if not konspekts:
+            konspekts = None
         keywords = []
         for field in field_650:
             if field.get('2', '') == 'czenas':
@@ -183,6 +187,8 @@ class DataImporter:
                     continue
             else:
                 continue
+        if not keywords:
+            keywords = None
         mdts = []
         for field in field_080:
             try:
@@ -190,6 +196,8 @@ class DataImporter:
             except KeyError as ke:
                 # print(ke)
                 continue
+        if not mdts:
+            mdts = None
         new_dict = {'id_001': field_001, 'isbn': field_020,
                     'keywords': keywords,
                     'konspekt': konspekts, 'mdt': mdts,

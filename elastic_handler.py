@@ -326,3 +326,10 @@ class ElasticHandler:
         text_index = ElasticHandler.get_text_index(index)
         if es.indices.exists(index=text_index):
             es.indices.delete(index=text_index)
+
+    @staticmethod
+    def refresh(index):
+        es = Elasticsearch()
+        es.indices.refresh(index=index)
+        text_index = ElasticHandler.get_text_index(index)
+        es.indices.refresh(index=text_index)

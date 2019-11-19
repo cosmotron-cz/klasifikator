@@ -80,7 +80,7 @@ class DataExporter:
         xml_head = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
         new_file.write(xml_head.encode("utf8"))
         new_file.write("<all>\n".encode("utf8"))
-        for event, elem in etree.iterparse(path_from, events=('end', 'start-ns'), remove_blank_text=True):
+        for event, elem in etree.iterparse(str(path_from), events=('end', 'start-ns'), remove_blank_text=True):
             if event == 'end':
                 if '}' in elem.tag:
                     elem.tag = elem.tag.split('}', 1)[1]  # odstranenie namespace

@@ -1,6 +1,7 @@
 import os
 import argparse
 import sys
+from pathlib import Path
 
 from scipy.sparse import csr_matrix
 import numpy as np
@@ -45,6 +46,7 @@ class SubjectClassifier:
         ElasticHandler.create_document_index(index)
         importer = DataImporter()
         importer.import_data(path, index)
+        ElasticHandler.refresh(index)
 
     def classify_documents(self):
         print("classify documents start")
@@ -85,6 +87,7 @@ class SubjectClassifier:
             if keywords is None:
                 keywords = self.keyword_generator.generate_keywords_elastic(index, id_elastic)
                 ElasticHandler.save_keywords(index, id_elastic, keywords)
+        ElasticHandler.refresh(index)
         print("classify documents end")
 
     def export_data(self, path_from, path_to=None):
@@ -92,8 +95,10 @@ class SubjectClassifier:
         if path_to is None:
             path_to = 'export.xml'
         index = ElasticHandler.get_index()
+        path = Path(path_from)
+        xml_path = path / 'metadata.xml'
         exporter = DataExporter()
-        exporter.add_all_xml(path_from, path_to, index)
+        exporter.add_all_xml(xml_path, path_to, index)
         print("export data end")
 
 
