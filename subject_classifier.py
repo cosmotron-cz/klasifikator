@@ -1,4 +1,6 @@
 import os
+import argparse
+import sys
 
 from scipy.sparse import csr_matrix
 import numpy as np
@@ -10,6 +12,7 @@ from keywords_generator import KeywordsGenerator
 from helper.helper import Helper
 from data_import import DataImporter
 from data_export import DataExporter
+from elasticsearch import Elasticsearch
 
 
 class SubjectClassifier:
@@ -44,6 +47,7 @@ class SubjectClassifier:
         importer.import_data(path, index)
 
     def classify_documents(self):
+        print("classify documents start")
         index = ElasticHandler.get_index()
         all_documents = ElasticHandler.select_all(index)
         for document in all_documents:
@@ -81,13 +85,16 @@ class SubjectClassifier:
             if keywords is None:
                 keywords = self.keyword_generator.generate_keywords_elastic(index, id_elastic)
                 ElasticHandler.save_keywords(index, id_elastic, keywords)
+        print("classify documents end")
 
     def export_data(self, path_from, path_to=None):
+        print("export data start")
         if path_to is None:
             path_to = 'export.xml'
         index = ElasticHandler.get_index()
         exporter = DataExporter()
         exporter.add_all_xml(path_from, path_to, index)
+        print("export data end")
 
 
 class ClassifierKeywords:
@@ -170,3 +177,46 @@ class ClassifierFulltext:
     def tfidf(self, term_freq, doc_freq, doc_count, sum):
         inverse_doc_freq = np.log(doc_count / doc_freq)
         return term_freq / sum * inverse_doc_freq
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Nástroj pre vecnú klasifikáciu dokumentov")
+    parser.add_argument("--directory", help="Adresár s potrebnými dátami")
+    parser.add_argument("--action", help="Akcia, ktorá sa vykoná. Možné akcie: \n"
+                                         "all - vykoná celý proces klasifikácie\n"
+                                         "import - import dát do elastiku\n"
+                                         "classify - klasifikovanie dát uložených v elastiku\n"
+                                         "export - export dát z elastiku do xml\n"
+                                         "remove - odstranenie dat z elastiku")
+    parser.add_argument("--export_to", help="Súbor kam sa exportujú dáta")
+    args = parser.parse_args()
+    if args.action is None or args.action == 'all':
+        if args.directory is None or args.export_to is None:
+            print("Pre vykonanie akcie all je potrebné zadať parametre --directory a --export_to")
+            sys.exit(2)
+
+        classifier = SubjectClassifier()
+        classifier.import_data(args.directory)
+        classifier.classify_documents()
+        classifier.export_data(args.directory, args.export_to)
+    elif args.action == "import":
+        if args.directory is None:
+            print("Pre vykonanie akcie import je potrebné zadať parameter --directory")
+            sys.exit(2)
+        classifier = SubjectClassifier()
+        classifier.import_data(args.directory)
+    elif args.action == "classify":
+        classifier = SubjectClassifier()
+        classifier.classify_documents()
+    elif args.action == "export":
+        if args.directory is None or args.export_to is None:
+            print("Pre vykonanie akcie export je potrebné zadať parametre --directory a --export_to")
+            sys.exit(2)
+        classifier = SubjectClassifier()
+        classifier.export_data(args.directory, args.export_to)
+    elif args.action == "remove":
+        index = ElasticHandler.get_index()
+        ElasticHandler.remove_index(index)
+    else:
+        print("Neznáma akcia: " + str(args.action))
+        sys.exit(2)
