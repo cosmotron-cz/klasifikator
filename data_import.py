@@ -89,6 +89,11 @@ class DataImporter:
                         result = result['record']  # odstranenie record tagu
                         DataImporter.move_tag_names(result)
                         new_dict = DataImporter.extract_metadata(result)
+                        if new_dict is None:
+                            continue
+                        if ElasticHandler.get_document(index, new_dict['id_001']) is not None:
+                            continue
+
                         oai = new_dict.get('oai', None)
                         if oai is not None:
                             uuids = pairs.get(oai, None)
@@ -100,10 +105,13 @@ class DataImporter:
                                     if pre_text != "":
                                         uuid = ui
                                         break
-                                pre_text_split = pre_text.split(' ')
-                                new_dict['text'] = pre_text
-                                new_dict['uuid'] = uuid
-                                new_dict['text_length'] = len(pre_text_split)
+                                if uuid != "":
+                                    new_dict['uuid'] = uuid
+                                if pre_text != "":
+                                    new_dict['text'] = pre_text
+                                    pre_text_split = pre_text.split(' ')
+                                    new_dict['text_length'] = len(pre_text_split)
+
                     except Exception as error:
                         id_marc = ""
                         if result is not None:
@@ -155,9 +163,9 @@ class DataImporter:
             else:
                 if isinstance(value, list):
                     for a in value:
-                        additional_info = additional_info + " " + str(a['a'])
+                        additional_info = additional_info + " " + str(a.get('a', ""))
                 else:
-                    additional_info = additional_info + " " + value['a']
+                    additional_info = additional_info + " " + value.get('a', "")
         if additional_info == "":
             additional_info = None
         field_020 = result.get('020', "")

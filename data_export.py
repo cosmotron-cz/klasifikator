@@ -169,9 +169,3 @@ class DataExporter:
         field_650.append(subfield_2)
 
         return field_650
-
-
-# path = 'C:\\Users\\jakub\\Documents\\metadata_mzk.xml'
-# path_to = 'C:\\Users\\jakub\\Documents\\export_test_mzk.xml'
-# DataExporter.add_all_xml(path, path_to, None)
-# #DataExporter.change_order_attr(path)

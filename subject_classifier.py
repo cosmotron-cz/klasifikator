@@ -38,6 +38,10 @@ class SubjectClassifier:
 
                 pattern = parts[1][1:]
                 desc = parts[3][1:]
+                if desc[0].isdigit():
+                    desc = desc.split(' ')
+                    desc = desc[1:]
+                    desc = ' '.join(desc)
                 new_dict = {"category": k, "description": desc, "original": ""}
                 self.rules[pattern] = new_dict
 
@@ -69,8 +73,11 @@ class SubjectClassifier:
                 keywords = self.preprocessor.remove_stop_words(keywords)
                 keywords = self.preprocessor.lemmatize(keywords)
                 category, group = self.classifier_keywords.classify(keywords)
-                description = self.rules.get(group, "")
-                konspekt_generated = {"category": category, "group": group, "description": description}
+                rule = self.rules.get(group, None)
+                description = ""
+                if rule is not None:
+                    description = rule.get('description', "")
+                konspekt_generated = [{"category": category, "group": group, "description": description}]
                 ElasticHandler.save_konspekt(index, id_elastic, konspekt_generated)
                 generated = True
 
@@ -79,8 +86,11 @@ class SubjectClassifier:
                 if term_vectors is not None and doc_count is not None:
                     category, group = self.classifier_fulltext.classify(term_vectors, document['text_length'],
                                                                         doc_count)
-                    description = self.rules.get(group, "")
-                    konspekt_generated = {"category": category, "group": group, "description": description}
+                    rule = self.rules.get(group, None)
+                    description = ""
+                    if rule is not None:
+                        description = rule.get('description', "")
+                    konspekt_generated = [{"category": category, "group": group, "description": description}]
                     ElasticHandler.save_konspekt(index, id_elastic, konspekt_generated)
                     generated = True
 
@@ -126,7 +136,7 @@ class ClassifierKeywords:
         group = self.groups[str(category)].predict(matrix)
         group = self.label_encoder.inverse_transform(group)[0]
 
-        return category, group
+        return str(category), str(group)
 
 
 class ClassifierFulltext:
@@ -157,7 +167,7 @@ class ClassifierFulltext:
         group = self.groups[str(category)].predict(matrix)
         group = self.label_encoder.inverse_transform(group)[0]
 
-        return category, group
+        return str(category), str(group)
 
     def prepare_dictionary(self, dictionary):
         if isinstance(dictionary, str):

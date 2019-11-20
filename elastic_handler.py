@@ -1,4 +1,4 @@
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, ElasticsearchException
 import configparser
 import os
 from elasticsearch_dsl import Search, Q
@@ -169,19 +169,21 @@ class ElasticHandler:
 
     @staticmethod
     def save_document(index, document):
-        text = document['text']
-        del document['text']
+        text = document.get('text', None)
+        if text is not None:
+            del document['text']
         es = Elasticsearch()
         # save document
         response = es.index(index=index, body=document)
         if response['result'] != 'created':
             raise Exception("Couldn't save document")
 
-        text_index = ElasticHandler.get_text_index(index)
-        body = {"text": text, "id_document": response['_id']}
-        response_text = es.index(index=text_index, body=body)
-        if response_text['result'] != 'created':
-            raise Exception("Couldn't save document text")
+        if text is not None:
+            text_index = ElasticHandler.get_text_index(index)
+            body = {"text": text, "id_document": response['_id']}
+            response_text = es.index(index=text_index, body=body, request_timeout=60)
+            if response_text['result'] != 'created':
+                raise Exception("Couldn't save document text")
         return response
 
     @staticmethod
@@ -211,6 +213,8 @@ class ElasticHandler:
     def term_vectors(index, id_elastic):
         text_index = ElasticHandler.get_text_index(index)
         text_id = ElasticHandler.get_text_id(index, id_elastic)
+        if text_id is None:
+            return None, None
         body = {
             "fields": ['text'],
             "positions": True,
@@ -230,6 +234,8 @@ class ElasticHandler:
     def term_vectors_keywords(index, id_elastic):
         text_index = ElasticHandler.get_text_index(index)
         text_id = ElasticHandler.get_text_id(index, id_elastic)
+        if text_id is None:
+            return None
         body = {
             "fields": ["text"],
             "term_statistics": True,
@@ -303,10 +309,11 @@ class ElasticHandler:
 
     @staticmethod
     def select_all(index):
-        es = Elasticsearch()
+        es = Elasticsearch(timeout=60)
         s = Search(using=es, index=index)
+        s = s.params(scroll='5h', request_timeout=100)
         s.execute()
-        return s
+        return s.scan()
 
     @staticmethod
     def get_document(index, id_001):

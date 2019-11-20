@@ -16,6 +16,10 @@ class MatchKonspekt():
 
                 pattern = parts[1][1:]
                 desc = parts[3][1:]
+                if desc[0].isdigit():
+                    desc = desc.split(' ')
+                    desc = desc[1:]
+                    desc = ' '.join(desc)
                 new_dict = {"category": k, "description": desc, "original": ""}
                 self.rules[pattern] = new_dict
                 if pattern.find('/') != -1:
