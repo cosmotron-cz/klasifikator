@@ -1,3 +1,6 @@
+from collections import OrderedDict
+from operator import getitem
+
 from elasticsearch_dsl import Search, Q
 from elasticsearch import Elasticsearch
 import pandas as pd
@@ -31,6 +34,27 @@ import numpy as np
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report
 from sklearn.preprocessing import LabelEncoder
+from elastic_handler import ElasticHandler
+
+
+class KeywordsGenerator:
+    def __init__(self):
+        self.preprocessor = Preprocessor()
+
+    def generate_keywords_elastic(self, index, id_elastic):
+        term_vectors = ElasticHandler.term_vectors_keywords(index, id_elastic)
+        if term_vectors is None:
+            return []
+        sorted_term_vectors = OrderedDict(sorted(term_vectors.items(), key=lambda x: getitem(x[1], 'score'),
+                                                 reverse=True))
+        generated = []
+        for word in sorted_term_vectors:
+            tag = self.preprocessor.pos_tag(word)[0][0]
+            if tag == 'A' or tag == 'N':
+                generated.append(word)
+                if len(generated) == 10:
+                    break
+        return generated
 
 
 class KeywordsGeneratorTfidf:
@@ -827,8 +851,8 @@ class KeywordsGeneratorTfidf:
         print(found_count/keywords_count)
 
 
-index = "fulltext_mzk"
-kg = KeywordsGeneratorTfidf()
+# index = "fulltext_mzk"
+# kg = KeywordsGeneratorTfidf()
 # kg.elastic_keywords(index, 'keywords.txt')
 # kg.count_found_keywords(index)
 # documents = pd.read_csv('2019_10_30_10_35/documents.csv', index_col=0)
@@ -871,8 +895,8 @@ kg = KeywordsGeneratorTfidf()
 
 
 # kg.fit_from_elastic(index)
-test = pd.read_csv('2019_10_31_17_29/keywords_elastic_tfidf.csv', index_col=0)
-kg.evaluate_keywords(test)
+# test = pd.read_csv('2019_10_31_17_29/keywords_elastic_tfidf.csv', index_col=0)
+# kg.evaluate_keywords(test)
 # clf = LinearSVC(random_state=0, tol=1e-5, C=1)
 # clf = SVC(kernel='poly')
 # clf = RandomForestClassifier(max_depth=50, n_estimators=200, n_jobs=4)

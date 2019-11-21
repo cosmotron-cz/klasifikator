@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import time
 from preprocessor import Preprocessor
+from elastic_handler import ElasticHandler
 
 
 class DataImporter:
@@ -66,154 +67,153 @@ class DataImporter:
     # importuje metadata do elastiku
 
     @staticmethod
-    def import_metadata(path, index):
-
-        es = Elasticsearch()
+    def import_data(path, index):
+        print("import data start")
+        path = Path(path)
+        pairs = Helper.get_pairs(path / 'sloucena_id')
+        te_pre = TextExtractorPre(path / 'text', path / 'sorted_pages')
+        xml_path = path / 'metadata.xml'
 
         number = 0
-        error_log = []
-        for event, elem in etree.iterparse(path, events=('end', 'start-ns')):
+        for event, elem in etree.iterparse(xml_path, events=('end', 'start-ns')):
             if event == 'end':
                 if '}' in elem.tag:
                     elem.tag = elem.tag.split('}', 1)[1]  # odstranenie namespace
                 if elem.tag == "record":
                     number += 1
                     result = None
-                    print("processing record number " + str(number))
                     try:
                         xmlstr = etree.tostring(elem, encoding='unicode', method='xml')
                         elem.clear()
                         result = xmltodict.parse(xmlstr)
                         result = result['record']  # odstranenie record tagu
                         DataImporter.move_tag_names(result)
-                        if result.get('072', None) is None:
+                        new_dict = DataImporter.extract_metadata(result)
+                        if new_dict is None:
                             continue
-                        if result.get('080', None) is None:
+                        if ElasticHandler.get_document(index, new_dict['id_001']) is not None:
                             continue
-                        if result.get('OAI', None) is None:
-                            continue
-                        if not DataImporter.is_in_language_dict(result, 'cze'):
-                            continue
-                    except Exception as error:
-                        print("exception during proccesing record number: " + str(number))
-                        error_log.append("exception during proccesing record number: " + str(number))
-                        print(error)
-                        error_log.append(error)
-                        result = None
-                        pass
-                    if result is not None:
-                        try:
-                            es.index(index=index, doc_type="record", body=result)
-                            es.indices.refresh(index=index)
-                            print("saved record number " + str(number))
-                        except exceptions.ElasticsearchException as elasticerror:
-                            print("failed to save record number: " + str(number))
-                            error_log.append("failed to save record number: " + str(number))
-                            print(elasticerror)
-                            error_log.append(str(elasticerror))
-                            pass
-        print(error_log)
 
-    # importuje metada do elastiku
-    # uklada az od zadaneho cisla
+                        oai = new_dict.get('oai', None)
+                        if oai is not None:
+                            uuids = pairs.get(oai, None)
+                            if uuids is not None:
+                                uuid = ""
+                                pre_text = ""
+                                for ui in uuids:
+                                    pre_text = te_pre.get_text(ui)
+                                    if pre_text != "":
+                                        uuid = ui
+                                        break
+                                if uuid != "":
+                                    new_dict['uuid'] = uuid
+                                if pre_text != "":
+                                    new_dict['text'] = pre_text
+                                    pre_text_split = pre_text.split(' ')
+                                    new_dict['text_length'] = len(pre_text_split)
+
+                    except Exception as error:
+                        id_marc = ""
+                        if result is not None:
+                            field_001 = result.get('001', None)
+                            if field_001 is not None:
+                                id_marc = field_001
+                        print("exception during proccesing record " + id_marc)
+                        print(error)
+                        new_dict = None
+                        pass
+                    if new_dict is not None:
+                        try:
+                            ElasticHandler.save_document(index, new_dict)
+                        except exceptions.ElasticsearchException as elastic_error:
+                            print("failed to save record: " + new_dict['id_001'])
+                            print(elastic_error)
+                            pass
+                    if number % 10000 == 0:
+                        print("processed " + str(number) + " records")
+        print("import data end")
 
     @staticmethod
-    def import_part_of_data(path, index, position_from):
-
-        es = Elasticsearch()
-
-        number = 0
-        error_log = []
-        for event, elem in etree.iterparse(path, events=('end', 'start-ns')):
-            if event == 'end':
-                if '}' in elem.tag:
-                    elem.tag = elem.tag.split('}', 1)[1]  # odstranenie namespace
-                if elem.tag == "record":
-                    number += 1
-                    if number < position_from:
-                        elem.clear()
-                        continue
-                    result = None
-                    print("processing record number " + str(number))
-                    try:
-                        xmlstr = etree.tostring(elem, encoding='unicode', method='xml')
-                        elem.clear()
-                        result = xmltodict.parse(xmlstr)
-                        result = result['record']  # odstranenie record tagu
-                        DataImporter.move_tag_names(result)
-                        if result.get('072', None) is None:
-                            continue
-                        if result.get('080', None) is None:
-                            continue
-                        if result.get('OAI', None) is None:
-                            continue
-                    except Exception as error:
-                        print("exception during proccesing record number: " + str(number))
-                        error_log.append("exception during proccesing record number: " + str(number))
-                        print(error)
-                        error_log.append(error)
-                        result = None
-                        pass
-                    if result is not None:
-                        try:
-                            es.index(index=index, doc_type="record", body=result)
-                            es.indices.refresh(index=index)
-                            print("saved record number " + str(number))
-                        except exceptions.ElasticsearchException as elasticerror:
-                            print("failed to save record number: " + str(number))
-                            error_log.append("failed to save record number: " + str(number))
-                            print(elasticerror)
-                            error_log.append(elasticerror)
-                            pass
-        print(error_log)
-
-    @staticmethod
-    def get_all_keywords(path):
-
-        number = 0
-        error_log = []
+    def extract_metadata(result):
+        at_least_one = ["505", "520", "521", "630"]
+        if not DataImporter.is_in_language_dict(result, 'cze'):
+            return None
+        field_001 = result.get('001', None)
+        if field_001 is None:
+            return None
+        field_072 = result.get('072', [])
+        if isinstance(field_072, (AttrDict, dict)):
+            field_072 = [field_072]
+        field_080 = result.get('080', [])
+        if isinstance(field_080, (AttrDict, dict)):
+            field_080 = [field_080]
+        field_650 = result.get('650', [])
+        if isinstance(field_650, (AttrDict, dict)):
+            field_650 = [field_650]
+        field_oai = result.get('OAI', None)
+        oai = None
+        if field_oai is not None:
+            oai = field_oai.get('a', None)
+        field_245 = result.get('245', None)
+        additional_info = ""
+        for key in at_least_one:
+            value = result.get(key, None)
+            if value is None:
+                continue
+            else:
+                if isinstance(value, list):
+                    for a in value:
+                        additional_info = additional_info + " " + str(a.get('a', ""))
+                else:
+                    additional_info = additional_info + " " + value.get('a', "")
+        if additional_info == "":
+            additional_info = None
+        field_020 = result.get('020', "")
+        if field_020 != "":
+            if isinstance(field_020, list):
+                field_020 = field_020[0].get('a', '')
+            else:
+                field_020 = field_020.get('a', '')
+        konspekts = []
+        for field in field_072:
+            if field.get('2', "") == 'Konspekt':
+                try:
+                    konspekts.append({'category': int(field['9']), 'group': field['a']})
+                except KeyError as ke:
+                    continue
+            else:
+                continue
+        if not konspekts:
+            konspekts = None
         keywords = []
-        for event, elem in etree.iterparse(path, events=('end', 'start-ns')):
-            if event == 'end':
-                if '}' in elem.tag:
-                    elem.tag = elem.tag.split('}', 1)[1]  # odstranenie namespace
-                if elem.tag == "record":
-                    number += 1
-                    result = None
-                    print("processing record number " + str(number))
-                    try:
-                        xmlstr = etree.tostring(elem, encoding='unicode', method='xml')
-                        elem.clear()
-                        result = xmltodict.parse(xmlstr)
-                        result = result['record']  # odstranenie record tagu
-                        DataImporter.move_tag_names(result)
-                        if result.get('650', None) is None:
-                            continue
-                        if not DataImporter.is_in_language_dict(result, 'cze'):
-                            continue
-                    except Exception as error:
-                        print("exception during proccesing record number: " + str(number))
-                        error_log.append("exception during proccesing record number: " + str(number))
-                        print(error)
-                        error_log.append(error)
-                        result = None
-                        pass
-                    if result is not None:
-                        field_650 = result.get('650', None)
-                        if isinstance(field_650, (AttrDict, dict)):
-                            field_650 = [field_650]
-                        for field in field_650:
-                            if field.get('2', '') == 'czenas':
-                                try:
-                                    if field['a'] not in keywords:
-                                        keywords.append(field['a'])
-                                except KeyError as ke:
-                                    # print(ke)
-                                    continue
-                            else:
-                                continue
-        print(keywords)
-        print(error_log)
+        for field in field_650:
+            if field.get('2', '') == 'czenas':
+                try:
+                    if field['a'] not in keywords:
+                        keywords.append(field['a'])
+                except KeyError as ke:
+                    continue
+            else:
+                continue
+        if not keywords:
+            keywords = None
+        mdts = []
+        for field in field_080:
+            try:
+                mdts.append(field['a'])
+            except KeyError as ke:
+                # print(ke)
+                continue
+        if not mdts:
+            mdts = None
+        new_dict = {'id_001': field_001, 'isbn': field_020,
+                    'keywords': keywords,
+                    'konspekt': konspekts, 'mdt': mdts,
+                    'title': field_245.get('a', "") + " " + field_245.get('b', ""),
+                    'additional_info': additional_info}
+        if oai is not None:
+            new_dict['oai'] = oai
+        return new_dict
 
     def import_fulltext(self, index, to_index):
         pairs = Helper.get_pairs('data/sloucena_id')
@@ -312,7 +312,6 @@ class DataImporter:
                         'czech_length': len(pre_text_split)}
             print(new_dict)
             print('saving number:' + str(i))
-            break
             try:
                 client.index(index=to_index, body=new_dict, request_timeout=60)
             except exceptions.ElasticsearchException as elasticerror:
@@ -342,325 +341,3 @@ class DataImporter:
                     if subfield_a.lower() == language:
                         return True
         return False
-
-    @staticmethod
-    def count_czech_not_tagged(path):
-        number_of_czech_not_taged = 0
-        number_with_080 = 0
-        number_with_multiple_080 = 0
-        error_log = []
-        for event, elem in etree.iterparse(path, events=('end', 'start-ns')):
-            if event == 'end':
-                if '}' in elem.tag:
-                    elem.tag = elem.tag.split('}', 1)[1]  # odstranenie namespace
-                if elem.tag == "record":
-                    try:
-                        xmlstr = etree.tostring(elem, encoding='unicode', method='xml')
-                        elem.clear()
-                        result = xmltodict.parse(xmlstr)
-                        result = result['record']  # odstranenie record tagu
-                        DataImporter.move_tag_names(result)
-                        if result.get('072', None) is not None:
-                            continue
-                        if result.get('OAI', None) is None:
-                            continue
-                        field_080 = result.get('080', None)
-                        if DataImporter.is_in_language_dict(result, "cze"):
-                            number_of_czech_not_taged += 1
-                        else:
-                            continue
-                        if field_080 is None:
-                            continue
-                        else:
-                            number_with_080 += 1
-                            if isinstance(field_080, list) or isinstance(field_080.get('a', None), list):
-                                number_with_multiple_080 += 1
-                    except Exception as error:
-                        print(error)
-                        error_log.append(str(error))
-                        pass
-        print("number of not tagged in czech: " + str(number_of_czech_not_taged))
-        print("number of not tagged in czech with one 080: " + str(number_with_080))
-        print("number of not tagged in czech with multiple 080: " + str(number_with_multiple_080))
-        print(error_log)
-
-    @staticmethod
-    def count_tagged_keywords(path):
-        have_note = 0
-        have_entry = 0
-        have_keyword = 0
-        error_log = []
-        for event, elem in etree.iterparse(path, events=('end', 'start-ns')):
-            if event == 'end':
-                if '}' in elem.tag:
-                    elem.tag = elem.tag.split('}', 1)[1]  # odstranenie namespace
-                if elem.tag == "record":
-                    try:
-                        xmlstr = etree.tostring(elem, encoding='unicode', method='xml')
-                        elem.clear()
-                        result = xmltodict.parse(xmlstr)
-                        result = result['record']  # odstranenie record tagu
-                        DataImporter.move_tag_names(result)
-                        if result.get('072', None) is None:
-                            continue
-                        if result.get('OAI', None) is None:
-                            continue
-                        field_600 = result.get('600', None)
-                        field_610 = result.get('610', None)
-                        field_611 = result.get('611', None)
-                        field_630 = result.get('630', None)
-                        field_650 = result.get('650', None)
-                        if field_600 is not None or field_610 is not None or field_611 is not None or \
-                                field_630 is not None or field_650 is not None:
-                            have_entry += 1
-                            if field_650 is not None:
-                                have_keyword += 1
-                        for i in range(500, 600):
-                            if result.get(str(i), None) is not None:
-                                have_note += 1
-                                break
-                    except Exception as error:
-                        print(error)
-                        error_log.append(str(error))
-                        pass
-        print("number of having note: " + str(have_note))
-        print("number of having entry: " + str(have_entry))
-        print("number of having keyword: " + str(have_keyword))
-        print(error_log)
-
-    @staticmethod
-    def get_tagged_missing_uuids(path):
-        i = 0
-        error_log = []
-        pairs = Helper.get_pairs('data/sloucena_id')
-        te = TextExtractor('data/all', 'data/sorted_pages')
-        found_uuids = []
-        for event, elem in etree.iterparse(path, events=('end', 'start-ns')):
-            if event == 'end':
-                if '}' in elem.tag:
-                    elem.tag = elem.tag.split('}', 1)[1]  # odstranenie namespace
-                if elem.tag == "record":
-                    try:
-                        xmlstr = etree.tostring(elem, encoding='unicode', method='xml')
-                        elem.clear()
-                        result = xmltodict.parse(xmlstr)
-                        result = result['record']  # odstranenie record tagu
-                        DataImporter.move_tag_names(result)
-                        try:
-                            field_001 = result['001']
-                            field_072 = result['072']
-                            oai = result['OAI']['a']
-                            if not DataImporter.is_in_language_dict(result, 'cze'):
-                                continue
-                        except KeyError as ke:
-                            continue
-                        uuids = pairs.get(oai, None)
-                        if uuids is None:
-                            continue
-                        for ui in uuids:
-                            ui = ui + ".tar.gz"
-                            if ui not in te.all_files:
-                                found_uuids.append(ui)
-                            else:
-                                i += 1
-                    except Exception as error:
-                        print(error)
-                        error_log.append(str(error))
-                        pass
-        print(i)
-        print(len(found_uuids))
-        with open('uuids5.txt', 'w+', encoding="utf-8") as f:
-            for ui in found_uuids:
-                f.write(ui)
-                f.write('\n')
-
-    @staticmethod
-    def import_texts(texts_path, sorted_pages, index):
-        for file in os.listdir(texts_path):
-            if not file.endswith("tar.gz"):
-                continue
-            tar = tarfile.open(os.path.join(texts_path, file), "r:gz")
-            tar.extractall(path=texts_path + "\\temp")
-            tar.close()
-
-    def get_missing_uuids(self, index):
-        pairs = Helper.get_pairs('data/sloucena_id')
-        te = TextExtractor('data/all', 'data/sorted_pages')
-        client = Elasticsearch()
-        s = Search(using=client, index=index)
-        s.execute()
-        found_uuids = []
-        i = 0
-        for hit in s.scan():
-            hit = hit.to_dict()
-            try:
-                field_001 = hit['001']
-                field_072 = hit['072']
-                oai = hit['OAI']['a']
-                # field_245 = hit['245']
-                if not self.is_in_language_dict(hit, 'cze'):
-                    continue
-            except KeyError as ke:
-                continue
-            uuids = pairs.get(oai, None)
-            if uuids is None:
-                continue
-            for ui in uuids:
-                ui = ui + ".tar.gz"
-                if ui not in te.all_files:
-                    found_uuids.append(ui)
-                else:
-                    i += 1
-        print(i)
-        print(len(found_uuids))
-        with open('uuids5.txt', 'w+', encoding="utf-8") as f:
-            for ui in found_uuids:
-                f.write(ui)
-                f.write('\n')
-
-
-index = 'records_mzk_filtered'
-index_to = 'test_shingle'
-es = Elasticsearch()
-# es.indices.delete(index=index_to)
-mappings = {
-    "mappings": {
-        "_source": {
-            "excludes": ["text", "czech"]
-        },
-        "properties": {
-            "title": {
-                "type": "keyword"
-            },
-            "text": {
-                "type": "text",
-                "analyzer": "fulltext_analyzer",
-                "term_vector": "with_positions_offsets",
-                "store": True,
-                "index_options": "offsets"
-            },
-            "czech": {
-                "type": "text",
-                "analyzer": "fulltext_analyzer",
-                "term_vector": "with_positions_offsets",
-                "store": True,
-                "index_options": "offsets"
-            },
-            "text_pre": {
-                "type": "text",
-                "term_vector": "with_positions_offsets",
-                "store": True,
-                "analyzer": "fulltext_analyzer",
-                "index_options": "offsets"
-            },
-            "tags_pre": {
-                "type": "text"
-            },
-            "tags_elastic": {
-                "type": "text"
-            },
-            "keywords": {
-                "type": "keyword"
-            },
-            "konspekt": {
-                "type": "nested",
-                "properties": {
-                    "category": {
-                        "type": "keyword"
-                    },
-                    "group": {
-                        "type": "keyword"
-                    }
-                }
-            },
-            "mdt": {
-                "type": "keyword"
-            },
-            "id_mzk": {
-                "type": "keyword"
-            },
-            "uuid": {
-                "type": "keyword"
-            },
-            "oai": {
-                "type": "keyword"
-            },
-            "isbn": {
-                "type": "keyword"
-            },
-            "czech_length": {
-                "type": "long"
-            }
-        }
-    },
-    "settings": {
-        "index.analyze.max_token_count": 20000,
-        "index": {
-            "number_of_shards": 1,
-            "number_of_replicas": 0
-        },
-        "analysis": {
-            "analyzer": {
-                "czech": {
-                    "type": "custom",
-                    "tokenizer": "standard",
-                    "filter": [
-                        "czech_stop",
-                        "czech_length",
-                        "czech_hunspell",
-                        "lowercase",
-                        "czech_stop",
-                        "unique_on_same_position"
-                    ]
-                },
-                "fulltext_analyzer": {
-                    "type": "custom",
-                    "tokenizer": "standard",
-                    "filter": [
-                        "lowercase",
-                        "filter_shingle"
-                    ]
-                }
-            },
-            "filter": {
-                "czech_hunspell": {
-                    "type": "hunspell",
-                    "locale": "cs_CZ",
-                    "dedup": True
-                },
-                "czech_stop": {
-                    "type": "stop",
-                    "stopwords": [
-                        "že",
-                        "_czech_"
-                    ]
-                },
-                "czech_length": {
-                    "type": "length",
-                    "min": 2
-                },
-                "unique_on_same_position": {
-                    "type": "unique",
-                    "only_on_same_position": True
-                },
-                "filter_shingle": {
-                    "type": "shingle",
-                    "max_shingle_size": 3,
-                    "min_shingle_size": 2,
-                    "output_unigrams": "true"
-                }
-            }
-        }
-    }
-}
-# response = es.indices.create(index=index_to, body=mappings)
-
-# print(response)
-
-# print(response)
-path = 'C:\\Users\\jakub\\Documents\\metadata_nkp.xml'
-di = DataImporter()
-# di.get_tagged_missing_uuids(path)
-# di.get_missing_uuids(index)
-# di.get_all_keywords(path)
-di.import_fulltext(index, index_to)

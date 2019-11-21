@@ -1,3 +1,6 @@
+import errno
+import os
+
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 import gensim
@@ -41,6 +44,11 @@ class Vectorizer():
 
     def save(self, path):
         vec_path = str(Path(path) / "vectorizer.pickle")
+        try:
+            os.makedirs(path)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
         with open(vec_path, "wb") as file:
             pickle.dump(self.vectorizer, file)
 
