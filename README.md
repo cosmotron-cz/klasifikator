@@ -4,6 +4,7 @@ Nástroj pre vecnú klasifikáciu dokumentov, na základe metadát a textov.
 
 # Inštalácia
 
+Návod je pre Windows, ale podobný postup je aj pre Linux.
 
 1. Inštalácia python 3.7 - [link](https://www.python.org/downloads/)
 2. Spustiť cmd
