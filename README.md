@@ -10,9 +10,9 @@ Nástroj pre vecnú klasifikáciu dokumentov, na základe metadát a textov.
 3. Inštalácia requirements.txt - `pip install -r requirements.txt`
 4. Stiahnuť Elasticsearch 7.2 - [link](https://www.elastic.co/downloads/past-releases/elasticsearch-7-2-0)
 5. Rozbaliť stiahnutý .zip
-6. Do súboru elasticsearch-7.2.0\config\elasticsearch.yml pridať riadok "http.max_content_length: 500mb" na koniec
-7. V súbore elasticsearch-7.2.0\config\jvm.options zmeniť riadok "-Xms1g" na "-Xms4g"
-8. V súbore elasticsearch-7.2.0\config\jvm.options zmeniť riadok "-Xmx1g" na "-Xmx4g"
+6. Do súboru elasticsearch-7.2.0\config\elasticsearch.yml pridať riadok *http.max_content_length: 500mb* na koniec
+7. V súbore elasticsearch-7.2.0\config\jvm.options zmeniť riadok *-Xms1g* na *-Xms4g*
+8. V súbore elasticsearch-7.2.0\config\jvm.options zmeniť riadok *-Xmx1g* na *-Xmx4g*
 9. Stiahnuť tento repozitár
 10. Rozbaliť súbory models\fulltext\fulltext.zip a models\keywords\keywords1 a models\keywords\keywords2 do priečinkov v ktorom sa nachádzajú
 
