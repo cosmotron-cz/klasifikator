@@ -5,7 +5,7 @@ Nástroj pre vecnú klasifikáciu dokumentov, na základe metadát a textov.
 # Inštalácia
 
 
-1. Inštalácia python 3.7 - [stiahni tu](https://www.python.org/downloads/)
+1. Inštalácia python 3.7 - [link](https://www.python.org/downloads/)
 2. Spustiť cmd
 3. Inštalácia requirements.txt - `pip install -r requirements.txt`
 4. Stiahnuť Elasticsearch 7.2 - [link](https://www.elastic.co/downloads/past-releases/elasticsearch-7-2-0)
@@ -19,7 +19,7 @@ Nástroj pre vecnú klasifikáciu dokumentov, na základe metadát a textov.
 
 # Použitie
 
-Pre spustenie klasifikácie je potrebné spusiť skript subject_classifier.py:
+Pre spustenie klasifikácie je potrebné najpr spustiť elastic - elasticsearch-7.2.0\bin\elasticsearch a potom spusiť skript subject_classifier.py:
 `python subject_classifier.py --directory [data] --export_to [xml]`
 
 Priečinok data by mal obsahovať tieto súbory/adresáre:
