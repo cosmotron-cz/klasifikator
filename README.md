@@ -35,4 +35,9 @@ Je možné použiť nepovinný parameter --action ACTION kde ACTION može byť:
 - import - spustí import dát
 - classify - spustí klasifikáciu dát
 - export - exportuje dáta z elastiku
+- all - vykonajú sa akcie import, classify a export
 - remove - vymaže dáta z elastiku
+
+Pri akcii export sa dáta uložia do zadaného xml. Pre každý záznam zo vstupného xml(metadata.xml) sa pridajú polia N072 pre generovaný konspket a N650 pre generované klúčové slová.
+
+
