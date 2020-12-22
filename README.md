@@ -40,4 +40,9 @@ Je možné použiť nepovinný parameter --action ACTION kde ACTION može byť:
 
 Pri akcii export sa dáta uložia do zadaného xml. Pre každý záznam zo vstupného xml(metadata.xml) sa pridajú polia N072 pre generovaný konspket a N650 pre generované klúčové slová.
 
+# Použitie API
+Pre spustenie servera na ktorom beží API pre klasifikáciu je potrebné:
+1. Spustiť elastic - elasticsearch-7.2.0\bin\elasticsearch
+2. Spustiť skript python_api.py
+3. V dalšom procese spustiť runner.py
 
