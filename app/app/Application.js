@@ -8,6 +8,8 @@ Ext.define('ClassificationApp.Application', {
 
     name: 'ClassificationApp',
 
+    stores: ['ClassificationData', 'Models', 'PlannedClassifications', 'PlannedTrainings', 'TrainingData'],
+
     quickTips: false,
     platformConfig: {
         desktop: {

@@ -17,13 +17,13 @@ from elasticsearch import Elasticsearch
 
 
 class SubjectClassifier:
-    def __init__(self):
+    def __init__(self, models_directory):
 
         self.match_konspekt = MatchKonspekt()
         self.elastic_handler = ElasticHandler()
         self.preprocessor = Preprocessor()
-        self.classifier_fulltext = ClassifierFulltext(self.preprocessor)
-        self.classifier_keywords = ClassifierKeywords(self.preprocessor)
+        self.classifier_fulltext = ClassifierFulltext(self.preprocessor, models_directory)
+        self.classifier_keywords = ClassifierKeywords(self.preprocessor, models_directory)
         self.keyword_generator = KeywordsGenerator()
         self.rules = {}
         self.script_directory = os.path.dirname(os.path.realpath(__file__))
@@ -113,15 +113,19 @@ class SubjectClassifier:
 
 
 class ClassifierKeywords:
-    def __init__(self, preprocessor):
+    def __init__(self, preprocessor, models_directory=None):
         self.script_directory = os.path.dirname(os.path.realpath(__file__))
-        self.category_classifier = Helper.load_model(self.script_directory + '/models/keywords/category.pickle')
+        if models_directory is None:
+            self.models_directory = self.script_directory + '/models'
+        else:
+            self.models_directory = models_directory
+        self.category_classifier = Helper.load_model(self.models_directory + '/keywords/category.pickle')
         self.groups = {}
         for i in range(1, 27):
-            model = Helper.load_model(self.script_directory + '/models/keywords/groups_' + str(i) + '.pickle')
+            model = Helper.load_model(self.models_directory + '/keywords/groups_' + str(i) + '.pickle')
             self.groups[str(i)] = model
-        self.label_encoder = Helper.load_model(self.script_directory + '/models/keywords/groups_labels.pickle')
-        self.tfidf = Helper.load_model(self.script_directory + '/models/keywords/tfidf.pickle')
+        self.label_encoder = Helper.load_model(self.models_directory + '/keywords/groups_labels.pickle')
+        self.tfidf = Helper.load_model(self.models_directory + '/keywords/tfidf.pickle')
         self.preprocessor = preprocessor
 
     def classify(self, keywords):
@@ -140,14 +144,19 @@ class ClassifierKeywords:
 
 
 class ClassifierFulltext:
-    def __init__(self, preprocessor):
+    def __init__(self, preprocessor, models_directory=None):
         self.script_directory = os.path.dirname(os.path.realpath(__file__))
-        self.category_classifier = Helper.load_model(self.script_directory + '/models/fulltext/category.pickle')
+        if models_directory is None:
+            self.models_directory = self.script_directory + '/models'
+        else:
+            self.models_directory = models_directory
+
+        self.category_classifier = Helper.load_model(self.models_directory + '/fulltext/category.pickle')
         self.groups = {}
         for i in range(1, 27):
-            model = Helper.load_model(self.script_directory + '/models/fulltext/groups_' + str(i) + '.pickle')
+            model = Helper.load_model(self.models_directory + '/fulltext/groups_' + str(i) + '.pickle')
             self.groups[str(i)] = model
-        self.label_encoder = Helper.load_model(self.script_directory + '/models/fulltext/groups_labels.pickle')
+        self.label_encoder = Helper.load_model(self.models_directory + '/fulltext/groups_labels.pickle')
         self.preprocessor = preprocessor
         self.dictionary = self.prepare_dictionary(self.script_directory + '/dictionary.txt')
 
@@ -210,7 +219,7 @@ if __name__ == "__main__":
             print("Pre vykonanie akcie all je potrebné zadať parametre --directory a --export_to")
             sys.exit(2)
 
-        classifier = SubjectClassifier()
+        classifier = SubjectClassifier(None)
         classifier.import_data(args.directory)
         classifier.classify_documents()
         classifier.export_data(args.directory, args.export_to)
@@ -218,16 +227,16 @@ if __name__ == "__main__":
         if args.directory is None:
             print("Pre vykonanie akcie import je potrebné zadať parameter --directory")
             sys.exit(2)
-        classifier = SubjectClassifier()
+        classifier = SubjectClassifier(None)
         classifier.import_data(args.directory)
     elif args.action == "classify":
-        classifier = SubjectClassifier()
+        classifier = SubjectClassifier(None)
         classifier.classify_documents()
     elif args.action == "export":
         if args.directory is None or args.export_to is None:
             print("Pre vykonanie akcie export je potrebné zadať parametre --directory a --export_to")
             sys.exit(2)
-        classifier = SubjectClassifier()
+        classifier = SubjectClassifier(None)
         classifier.export_data(args.directory, args.export_to)
     elif args.action == "remove":
         index = ElasticHandler.get_index()

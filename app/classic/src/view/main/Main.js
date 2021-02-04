@@ -15,7 +15,6 @@ Ext.define('ClassificationApp.view.main.Main', {
 
         'ClassificationApp.view.main.MainController',
         'ClassificationApp.view.main.MainModel',
-        'ClassificationApp.view.main.List'
     ],
 
     controller: 'main',
@@ -75,11 +74,35 @@ Ext.define('ClassificationApp.view.main.Main', {
     },
 
     items: [{
-        title: 'Klasifikace',
-        iconCls: 'fa-list-alt',
-        // The following grid shares a store with the classic version's grid as well!
-        items: [{
-            xtype: 'classify'
-        }]
-    }, ]
+            title: 'Klasifikace',
+            iconCls: 'fa-list-alt',
+            items: [{
+                xtype: 'classify'
+            }],
+            tabConfig: {
+                listeners: {
+                    click: function() {
+                        ClassificationApp.getApplication().getStore('ClassificationData').load();
+                        ClassificationApp.getApplication().getStore('Models').load();
+                        ClassificationApp.getApplication().getStore('PlannedClassifications').load();
+                    }
+                }
+            }
+        }, 
+        {
+            title: 'Trénování',
+            iconCls: 'fa-list-alt',
+            items: [{
+                xtype: 'train'
+            }],
+            tabConfig: {
+                listeners: {
+                    click: function() {
+                        ClassificationApp.getApplication().getStore('TrainingData').load();
+                        ClassificationApp.getApplication().getStore('PlannedTrainings').load();
+                    }
+                }
+            }
+        },
+    ],
 });

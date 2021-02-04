@@ -1,4 +1,6 @@
 # coding=utf-8
+import io
+
 import xmltodict
 import xml.etree.ElementTree as etree
 from elasticsearch import Elasticsearch
@@ -341,3 +343,87 @@ class DataImporter:
                     if subfield_a.lower() == language:
                         return True
         return False
+
+    # selektuje data ktore obsahuju 072 + 650 a fulltext potrebne pre trenovanie
+    @staticmethod
+    def select_data(path, path_to):
+        print("import data start")
+        path = Path(path)
+        path_to = Path(path_to)
+        pairs = Helper.get_pairs(path / 'sloucena_id')
+        te = TextExtractor(path / 'text', path / 'sorted_pages')
+        xml_path = path / 'metadata.xml'
+
+        new_file = io.open(path_to / 'new.xml', "wb+")
+        xml_head = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+        new_file.write(xml_head.encode("utf8"))
+        new_file.write("<all>\n".encode("utf8"))
+
+        number = 0
+        for event, elem in etree.iterparse(xml_path, events=('end', 'start-ns')):
+            if event == 'end':
+                if '}' in elem.tag:
+                    elem.tag = elem.tag.split('}', 1)[1]  # odstranenie namespace
+                if elem.tag == "record":
+                    number += 1
+                    result = None
+                    try:
+                        xmlstr = etree.tostring(elem, encoding='unicode', method='xml')
+                        result = xmltodict.parse(xmlstr)
+                        result = result['record']  # odstranenie record tagu
+                        DataImporter.move_tag_names(result)
+                        new_dict = DataImporter.extract_metadata(result)
+                        if new_dict is None:
+                            elem.clear()
+                            continue
+                        if new_dict.get("keywords", None) is None or new_dict.get("konspekt", None) is None:
+                            elem.clear()
+                            continue
+
+                        oai = new_dict.get('oai', None)
+                        if oai is not None:
+                            uuids = pairs.get(oai, None)
+                            if uuids is not None:
+                                uuid = ""
+                                pre_text = ""
+                                for ui in uuids:
+                                    pre_text = te.get_text(ui)
+                                    if pre_text != "":
+                                        uuid = ui
+                                        break
+                                if uuid != "":
+                                    print("found: " + uuid)
+                                    file = uuid
+                                    if "uuid" not in file:
+                                        file = "uuid_" + file
+                                    if ".tar.gz" not in file:
+                                        file = file + ".tar.gz"
+                                    file.replace(':', '_')
+                                    os.system('copy ' + str(path) + '\\text\\' + file + ' ' + str(path_to) + '\\text')
+                                    file = uuid
+                                    if "uuid" not in file:
+                                        file = "uuid_" + file
+                                    if ".txt" not in file:
+                                        file = file + ".txt"
+                                    file.replace(':', '_')
+                                    os.system('copy ' + str(path) + '\\sorted_pages\\' + file + ' ' + str(path_to) +
+                                              '\\sorted_pages')
+                                    new_file.write(xmlstr.encode("utf8"))
+
+                    except Exception as error:
+                        id_marc = ""
+                        if result is not None:
+                            field_001 = result.get('001', None)
+                            if field_001 is not None:
+                                id_marc = field_001
+                        print("exception during proccesing record " + id_marc)
+                        print(error)
+                        new_dict = None
+                        elem.clear()
+                        pass
+                    elem.clear()
+                    if number % 10000 == 0:
+                        print("processed " + str(number) + " records")
+        new_file.write("</all>".encode("utf8"))
+        new_file.close()
+        print("import data end")

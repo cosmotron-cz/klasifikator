@@ -33,7 +33,7 @@ class ElasticHandler:
 
     @staticmethod
     def get_text_index(doc_index):
-        parts = doc_index.split('_')
+        parts = doc_index.split('_', 1)
         return "fulltext_" + parts[1]
 
     @staticmethod
@@ -340,3 +340,199 @@ class ElasticHandler:
         es.indices.refresh(index=index)
         text_index = ElasticHandler.get_text_index(index)
         es.indices.refresh(index=text_index)
+
+    @staticmethod
+    def create_planned_classification(data, model, note, date, email, index=None):
+        if index is None or index == "":
+            index = "planned_classification"
+        es = Elasticsearch()
+        doc = {
+            'data': data,
+            'model': model,
+            'note': note,
+            'date': date,
+            'email': email,
+            'status': 'Planned',
+            'error': '',
+            'export': ''
+        }
+
+        res = es.index(index=index, body=doc)
+
+    @staticmethod
+    def update_planned_classification(class_id, data, model, note, date, email, status, error, export, index=None):
+        if index is None or index == "":
+            index = "planned_classification"
+        es = Elasticsearch()
+
+        doc = {'doc': {}}
+        if data is not None:
+            doc['doc']['data'] = data
+
+        if model is not None:
+            doc['doc']['model'] = model
+
+        if note is not None:
+            doc['doc']['note'] = note
+
+        if date is not None:
+            doc['doc']['date'] = date
+
+        if email is not None:
+            doc['doc']['email'] = email
+
+        if status is not None:
+            doc['doc']['status'] = status
+
+        if error is not None:
+            doc['doc']['error'] = error
+
+        if export is not None:
+            doc['doc']['export'] = export
+
+        res = es.update(index=index, id=class_id, body=doc)
+
+    @staticmethod
+    def delete_planned_classification(class_id, index=None):
+        if index is None or index == "":
+            index = "planned_classification"
+        es = Elasticsearch()
+
+        res = es.delete(index=index, id=class_id)
+
+    @staticmethod
+    def get_planned_classifications(index=None):
+        if index is None or index == "":
+            index = "planned_classification"
+        es = Elasticsearch()
+
+        res = es.search(index=index, body={"query": {"match_all": {}}})
+        data = []
+        for doc in res['hits']['hits']:
+            training = {'id': doc['_id'],
+                        'data': doc['_source'].get('data', ''),
+                        'model': doc['_source'].get('model', ''),
+                        'note': doc['_source'].get('note', ''),
+                        'date': doc['_source'].get('date', ''),
+                        'email': doc['_source'].get('email', ''),
+                        'status': doc['_source'].get('status', ''),
+                        'error': doc['_source'].get('error', ''),
+                        'export': doc['_source'].get('export', '')}
+            data.append(training)
+        return data
+
+    @staticmethod
+    def get_unstarted_classifications(index=None):
+        if index is None or index == "":
+            index = "planned_classification"
+        es = Elasticsearch()
+
+        res = es.search(index=index, body={"query": {"match": {"status": "Planned"}}})
+        data = []
+        for doc in res['hits']['hits']:
+            classification = {'id': doc['_id'],
+                              'data': doc['_source'].get('data', ''),
+                              'model': doc['_source'].get('model', ''),
+                              'note': doc['_source'].get('note', ''),
+                              'date': doc['_source'].get('date', ''),
+                              'email': doc['_source'].get('email', ''),
+                              'status': doc['_source'].get('status', ''),
+                              'error': doc['_source'].get('error', ''),
+                              'export': doc['_source'].get('export', '')}
+            data.append(classification)
+        return data
+
+    @staticmethod
+    def create_planned_training(data, note, date, email, index=None):
+        if index is None or index == "":
+            index = "planned_training"
+        es = Elasticsearch()
+        doc = {
+            'data': data,
+            'note': note,
+            'date': date,
+            'email': email,
+            'status': 'Planned',
+            'error': '',
+            'model': ''
+        }
+
+        res = es.index(index=index, body=doc)
+
+    @staticmethod
+    def update_planned_training(training_id, data, note, date, email, status, error, model, index=None):
+        if index is None or index == "":
+            index = "planned_training"
+        es = Elasticsearch()
+        doc = {'doc': {}}
+        if data is not None:
+            doc['doc']['data'] = data
+
+        if note is not None:
+            doc['doc']['note'] = note
+
+        if date is not None:
+            doc['doc']['date'] = date
+
+        if email is not None:
+            doc['doc']['email'] = email
+
+        if status is not None:
+            doc['doc']['status'] = status
+
+        if error is not None:
+            doc['doc']['error'] = error
+
+        if model is not None:
+            doc['doc']['model'] = model
+
+        res = es.update(index=index, id=training_id, body=doc)
+        print(res)
+
+    @staticmethod
+    def delete_planned_training(training_id, index=None):
+        if index is None or index == "":
+            index = "planned_training"
+        es = Elasticsearch()
+
+        res = es.delete(index=index, id=training_id)
+
+    @staticmethod
+    def get_planned_trainings(index=None):
+        if index is None or index == "":
+            index = "planned_training"
+        es = Elasticsearch()
+
+        res = es.search(index=index, body={"query": {"match_all": {}}})
+        data = []
+        for doc in res['hits']['hits']:
+            training = {'id': doc['_id'],
+                        'data': doc['_source'].get('data', ''),
+                        'note': doc['_source'].get('note', ''),
+                        'date': doc['_source'].get('date', ''),
+                        'email': doc['_source'].get('email', ''),
+                        'status': doc['_source'].get('status', ''),
+                        'error': doc['_source'].get('error', ''),
+                        'model': doc['_source'].get('model', '')}
+            data.append(training)
+        return data
+
+    @staticmethod
+    def get_unstarted_trainings(index=None):
+        if index is None or index == "":
+            index = "planned_training"
+        es = Elasticsearch()
+
+        res = es.search(index=index, body={"query": {"match": {"status": "Planned"}}})
+        data = []
+        for doc in res['hits']['hits']:
+            training = {'id': doc['_id'],
+                        'data': doc['_source'].get('data', ''),
+                        'note': doc['_source'].get('note', ''),
+                        'date': doc['_source'].get('date', ''),
+                        'email': doc['_source'].get('email', ''),
+                        'status': doc['_source'].get('status', ''),
+                        'error': doc['_source'].get('error', ''),
+                        'model': doc['_source'].get('model', '')}
+            data.append(training)
+        return data
